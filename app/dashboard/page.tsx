@@ -23,6 +23,7 @@ import { supabase } from '@/lib/supabase'
 export default function DashboardPage() {
     const [session, setSession] = useState<any>(null)
     const [userRole, setUserRole] = useState<string>('USER')
+    const [userName, setUserName] = useState<string>('')
     const [loading, setLoading] = useState(true)
     const [stats, setStats] = useState({
         totalJobs: 0,
@@ -33,51 +34,64 @@ export default function DashboardPage() {
 
     useEffect(() => {
         const init = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
-            setSession(session)
+            try {
+                const { data: { session } } = await supabase.auth.getSession()
+                setSession(session)
 
-            if (session?.user?.id) {
-                console.log('Fetching role for user:', session.user.id)
-                const { data, error } = await (supabase as any)
-                    .from('users')
-                    .select('role')
-                    .eq('id', session.user.id)
-                    .single()
+                if (session?.user?.id) {
+                    console.log('Dashboard: Fetching profile for user:', session.user.id)
+                    // Use limit(1) instead of maybeSingle to avoid 406/PGRST116 issues
+                    const { data: profileList, error } = await (supabase as any)
+                        .from('users')
+                        .select('role, name')
+                        .eq('id', session.user.id)
+                        .limit(1)
 
-                if (error) {
-                    console.error('Error fetching role in DashboardPage:', error)
-                } else if (data) {
-                    const roleData = data as { role: string }
-                    console.log('Role found in DashboardPage:', roleData.role)
-                    setUserRole(roleData.role)
+                    let profileData = null
+                    if (error) {
+                        console.error('Dashboard: Error fetching profile:', error)
+                    } else if (profileList && profileList.length > 0) {
+                        profileData = profileList[0] as { role: string; name: string }
+                        console.log('Dashboard: Profile found:', profileData)
+                        setUserRole(profileData.role)
+                        setUserName(profileData.name)
+                    } else {
+                        console.warn('Dashboard: Profile record not found for ID:', session.user.id)
+                        setUserName(session.user.email?.split('@')[0] || 'Member')
+                    }
+
+                    // Fetch Real Stats
+                    let jobsQuery = (supabase as any).from('jobs').select('status', { count: 'exact' })
+                    let usersQuery = (supabase as any).from('users').select('id', { count: 'exact', head: true })
+
+                    // If not admin/manager, filter jobs by staff_id
+                    const isSystemStaff = profileData && profileData.role === 'USER'
+                    if (isSystemStaff) {
+                        jobsQuery = jobsQuery.eq('staff_id', session.user.id)
+                    } else if (!profileData) {
+                        // Fallback: If no profile record, assume USER role and filter by ID to be safe
+                        jobsQuery = jobsQuery.eq('staff_id', session.user.id)
+                    }
+
+                    const [
+                        { data: jobs, count: totalJobs },
+                        { count: totalUsers }
+                    ] = await Promise.all([jobsQuery, usersQuery])
+
+                    const safeJobs = (jobs || []) as { status: string }[]
+
+                    setStats({
+                        totalJobs: totalJobs || 0,
+                        inProgress: safeJobs.filter(j => j.status === 'IN_PROGRESS').length,
+                        completed: safeJobs.filter(j => j.status === 'COMPLETED').length,
+                        totalUsers: totalUsers || 0
+                    })
                 }
-
-                // Fetch Real Stats
-                let jobsQuery = (supabase as any).from('jobs').select('status', { count: 'exact' })
-                let usersQuery = (supabase as any).from('users').select('id', { count: 'exact', head: true })
-
-                // If not admin/manager, filter jobs by staff_id
-                const roleData = data as { role: string } | null
-                const isSystemStaff = roleData && roleData.role === 'USER'
-                if (isSystemStaff) {
-                    jobsQuery = jobsQuery.eq('staff_id', session.user.id)
-                }
-
-                const [
-                    { data: jobs, count: totalJobs },
-                    { count: totalUsers }
-                ] = await Promise.all([jobsQuery, usersQuery])
-
-                const safeJobs = (jobs || []) as { status: string }[]
-
-                setStats({
-                    totalJobs: totalJobs || 0,
-                    inProgress: safeJobs.filter(j => j.status === 'IN_PROGRESS').length,
-                    completed: safeJobs.filter(j => j.status === 'COMPLETED').length,
-                    totalUsers: totalUsers || 0
-                })
+            } catch (err) {
+                console.error('Dashboard: Unexpected error in init:', err)
+            } finally {
+                setLoading(false)
             }
-            setLoading(false)
         }
         init()
     }, [])
@@ -94,7 +108,7 @@ export default function DashboardPage() {
                 <div className="mb-16 animate-slide-up">
                     <div className="h-1 w-20 bg-indigo-600 rounded-full mb-8" />
                     <h2 className="text-4xl lg:text-5xl font-bold text-slate-900 font-heading tracking-tight mb-4 leading-tight">
-                        Welcome back, <span className="text-indigo-600">{session.user.name}!</span>
+                        Welcome back, <span className="text-indigo-600">{userName || 'Studio Member'}!</span>
                     </h2>
                     <p className="text-slate-500 text-lg max-w-2xl font-medium">
                         {isAdmin

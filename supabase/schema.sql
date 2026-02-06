@@ -113,15 +113,15 @@ ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
 -- We need to check our INTERNAL 'users' table role column ('ADMIN', 'MANAGER', 'USER').
 
 -- HELPER: Prevent RLS Recursion
--- This function securely checks if the current user is an admin without triggering recursive policy checks.
-CREATE OR REPLACE FUNCTION public.is_admin()
+-- This function securely checks if the current user is an admin/manager without triggering recursive policy checks.
+CREATE OR REPLACE FUNCTION public.is_privileged()
 RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1
     FROM public.users
     WHERE id = auth.uid()
-    AND role = 'ADMIN'
+    AND role IN ('ADMIN', 'MANAGER')
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -130,7 +130,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Uses the secure function to avoid infinite loops.
 DROP POLICY IF EXISTS "Users: Admins View All" ON users;
 CREATE POLICY "Users: Admins View All" ON users FOR SELECT
-USING ( is_admin() );
+USING ( is_privileged() );
 
 -- Users: Anyone can see THEMSELVES (Critical for loading profile)
 DROP POLICY IF EXISTS "Users: View Self" ON users;
@@ -145,12 +145,12 @@ USING ( true );
 -- Services: Only Admin can edit
 DROP POLICY IF EXISTS "Services: Admin Edit" ON services;
 CREATE POLICY "Services: Admin Edit" ON services FOR ALL
-USING ( is_admin() );
+USING ( is_privileged() );
 
 -- Configs: Admin manages
 DROP POLICY IF EXISTS "Configs: Admin Manage" ON staff_service_configs;
 CREATE POLICY "Configs: Admin Manage" ON staff_service_configs FOR ALL
-USING ( is_admin() );
+USING ( is_privileged() );
 
 -- Configs: Staff sees own
 DROP POLICY IF EXISTS "Configs: Staff View Own" ON staff_service_configs;
@@ -160,7 +160,7 @@ USING ( staff_id = auth.uid() );
 -- Vendors: Admin manages
 DROP POLICY IF EXISTS "Vendors: Admin Manage" ON vendors;
 CREATE POLICY "Vendors: Admin Manage" ON vendors FOR ALL
-USING ( is_admin() );
+USING ( is_privileged() );
 
 -- Vendors: Staff views
 DROP POLICY IF EXISTS "Vendors: Staff View" ON vendors;
@@ -170,17 +170,17 @@ USING ( true );
 -- Jobs: Admin manages all
 DROP POLICY IF EXISTS "Jobs: Admin Manage All" ON jobs;
 CREATE POLICY "Jobs: Admin Manage All" ON jobs FOR ALL
-USING ( is_admin() );
+USING ( is_privileged() );
 
 -- Jobs: Staff sees assigned
 DROP POLICY IF EXISTS "Jobs: Staff View Assigned" ON jobs;
 CREATE POLICY "Jobs: Staff View Assigned" ON jobs FOR SELECT
-USING ( true );
+USING ( auth.uid() = staff_id OR is_privileged() );
 
 -- Jobs: Staff updates assigned (e.g. status)
 DROP POLICY IF EXISTS "Jobs: Staff Update Assigned" ON jobs;
 CREATE POLICY "Jobs: Staff Update Assigned" ON jobs FOR UPDATE
-USING ( true );
+USING ( auth.uid() = staff_id OR is_privileged() );
 
 
 -- AUTOMATIC NEW USER HANDLER

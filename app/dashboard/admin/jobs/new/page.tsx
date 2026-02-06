@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Save, Info, AlertCircle, Percent } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -10,7 +9,6 @@ import { formatCurrency, calculateCommission } from '@/lib/utils'
 import AestheticSelect from '@/components/AestheticSelect'
 
 export default function NewJobPage() {
-    const { data: session, status } = useSession()
     const router = useRouter()
 
     const [loading, setLoading] = useState(false)
@@ -35,14 +33,29 @@ export default function NewJobPage() {
     })
 
     useEffect(() => {
-        // if (status === 'unauthenticated') {
-        //     router.push('/login')
-        // } else if (session?.user.role !== 'ADMIN') {
-        //     router.push('/dashboard')
-        // } else {
-        fetchFormData()
-        // }
-    }, [status, session, router])
+        const checkAuth = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                router.push('/login')
+                return
+            }
+
+            // Fetch user role from public.users
+            const { data: profile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', user.id)
+                .single()
+
+            if (profile?.role !== 'ADMIN' && profile?.role !== 'MANAGER') {
+                router.push('/dashboard')
+                return
+            }
+
+            fetchFormData()
+        }
+        checkAuth()
+    }, [router])
 
     const fetchFormData = async () => {
         try {

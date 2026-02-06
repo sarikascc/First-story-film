@@ -1,19 +1,17 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Save, Plus, X, Percent } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Service } from '@/types/database'
-import bcrypt from 'bcryptjs'
 
 export default function NewUserPage() {
-    const { data: session, status } = useSession()
     const router = useRouter()
 
     const [loading, setLoading] = useState(false)
     const [services, setServices] = useState<Service[]>([])
+    const [currentUser, setCurrentUser] = useState<any>(null)
 
     // Form State
     const [formData, setFormData] = useState({
@@ -27,14 +25,30 @@ export default function NewUserPage() {
     const [commissions, setCommissions] = useState<{ serviceId: string, percentage: number }[]>([])
 
     useEffect(() => {
-        if (status === 'unauthenticated') {
-            router.push('/login')
-        } else if (session?.user.role !== 'ADMIN') {
-            router.push('/dashboard')
-        } else {
+        const checkAuth = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                router.push('/login')
+                return
+            }
+
+            // Fetch user role from public.users
+            const { data: profile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', user.id)
+                .single()
+
+            if (profile?.role !== 'ADMIN') {
+                router.push('/dashboard')
+                return
+            }
+
+            setCurrentUser(user)
             fetchServices()
         }
-    }, [status, session, router])
+        checkAuth()
+    }, [router])
 
     const fetchServices = async () => {
         const { data, error } = await supabase.from('services').select('*').order('name')
@@ -63,31 +77,30 @@ export default function NewUserPage() {
         setLoading(true)
 
         try {
-            // 1. Hash the password
-            const hashedPassword = await bcrypt.hash(formData.password, 10)
-
-            // 2. Create User record via Supabase Admin (since regular signup might be disabled or handled differently)
-            // Note: In a real production app, you might use a Supabase Edge Function to avoid leaking service role key or use Supabase Auth Admin API
-            const { data: userData, error: userError } = await (supabase
-                .from('users') as any)
-                .insert([{
-                    name: formData.name,
+            // 1. Create User via our API route (handles both auth and profile)
+            const response = await fetch('/api/admin/create-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     email: formData.email,
-                    password: hashedPassword,
+                    password: formData.password,
+                    name: formData.name,
                     mobile: formData.mobile,
-                    role: 'STAFF'
-                }])
-                .select()
-                .single()
+                    role: 'USER'
+                })
+            })
 
-            if (userError) throw userError
+            const result = await response.json()
+            if (!response.ok) throw new Error(result.error || 'Failed to create user')
 
-            // 3. Save Commission Configs if any
+            const newUserId = result.id
+
+            // 2. Save Commission Configs if any
             if (commissions.length > 0) {
                 const validCommissions = commissions
                     .filter(c => c.serviceId !== '')
                     .map(c => ({
-                        staff_id: userData.id,
+                        staff_id: newUserId,
                         service_id: c.serviceId,
                         percentage: c.percentage
                     }))

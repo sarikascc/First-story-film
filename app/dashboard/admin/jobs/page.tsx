@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Plus, Search, Calendar, User, Building2, MapPin, ExternalLink, Clock, Edit2, ClipboardList } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -10,7 +9,6 @@ import { formatCurrency, getStatusColor, getStatusLabel } from '@/lib/utils'
 import Pagination from '@/components/Pagination'
 
 export default function JobsPage() {
-    const { data: session, status } = useSession()
     const router = useRouter()
     const [jobs, setJobs] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
@@ -19,14 +17,29 @@ export default function JobsPage() {
     const ITEMS_PER_PAGE = 10
 
     useEffect(() => {
-        if (status === 'unauthenticated') {
-            router.push('/login')
-        } else if (session?.user.role !== 'ADMIN' && session?.user.role !== 'MANAGER') {
-            router.push('/dashboard')
-        } else {
+        const checkAuth = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                router.push('/login')
+                return
+            }
+
+            // Fetch user role from public.users
+            const { data: profile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', user.id)
+                .single()
+
+            if (profile?.role !== 'ADMIN' && profile?.role !== 'MANAGER') {
+                router.push('/dashboard')
+                return
+            }
+
             fetchJobs()
         }
-    }, [status, session, router])
+        checkAuth()
+    }, [router])
 
     const fetchJobs = async () => {
         try {

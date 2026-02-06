@@ -18,6 +18,9 @@ export async function POST(request: Request) {
         const body = await request.json()
         const { email, password, name, role, mobile } = body
 
+        // Ensure role is valid for database check constraint
+        const dbRole = (role === 'ADMIN' || role === 'MANAGER') ? role : 'USER'
+
         // 1. Create User in Supabase Auth
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email,
@@ -25,7 +28,7 @@ export async function POST(request: Request) {
             email_confirm: true,
             user_metadata: {
                 name,
-                role,
+                role: dbRole,
                 mobile
             }
         })
@@ -50,7 +53,7 @@ export async function POST(request: Request) {
                     id: authData.user.id,
                     email,
                     name,
-                    role,
+                    role: dbRole,
                     mobile
                 })
 

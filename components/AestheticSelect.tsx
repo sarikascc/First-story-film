@@ -61,18 +61,18 @@ export default function AestheticSelect({
                 disabled={disabled}
                 onClick={() => !disabled && setIsOpen(!isOpen)}
                 className={cn(
-                    "w-full h-11 bg-white border-2 border-slate-100 rounded-xl px-4 flex items-center justify-between transition-all duration-300",
+                    "w-full h-12 bg-white border-2 border-slate-100 rounded-[2rem] px-5 flex items-center justify-between transition-all duration-300",
                     "hover:border-slate-200 hover:bg-slate-50/50",
                     isOpen && "border-indigo-600 ring-4 ring-indigo-50 bg-white",
                     disabled && "opacity-50 cursor-not-allowed bg-slate-50",
                     !selectedOption && "text-slate-400"
                 )}
             >
-                <span className={cn("text-sm transition-all truncate", selectedOption ? "font-bold text-slate-900" : "font-medium")}>
+                <span className={cn("text-[11px] transition-all truncate font-black uppercase tracking-widest", selectedOption ? "text-slate-900" : "text-slate-400")}>
                     {selectedOption ? selectedOption.name : placeholder}
                 </span>
                 <ChevronDown
-                    size={20}
+                    size={16}
                     className={cn(
                         "text-indigo-600 transition-transform duration-500",
                         isOpen && "rotate-180"

@@ -2,6 +2,18 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+    const { pathname } = request.nextUrl;
+
+    // Optimization: Skip middleware for static assets early
+    if (
+        pathname.startsWith('/_next') ||
+        pathname.startsWith('/api') ||
+        pathname.startsWith('/favicon.ico') ||
+        pathname.includes('.') // matches .svg, .png, etc.
+    ) {
+        return NextResponse.next();
+    }
+
     let response = NextResponse.next({
         request: {
             headers: request.headers,
@@ -54,18 +66,24 @@ export async function middleware(request: NextRequest) {
         }
     );
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+    // Only call getUser if we are on a route that actually needs it
+    const isDashboard = pathname.startsWith("/dashboard");
+    const isLogin = pathname.startsWith("/login");
 
-    // Redirect to login if not authenticated and accessing dashboard
-    if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
-        return NextResponse.redirect(new URL("/login", request.url));
-    }
+    if (isDashboard || isLogin) {
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
 
-    // Redirect to dashboard if authenticated and accessing login
-    if (user && request.nextUrl.pathname.startsWith("/login")) {
-        return NextResponse.redirect(new URL("/dashboard", request.url));
+        // Redirect to login if not authenticated and accessing dashboard
+        if (!user && isDashboard) {
+            return NextResponse.redirect(new URL("/login", request.url));
+        }
+
+        // Redirect to dashboard if authenticated and accessing login
+        if (user && isLogin) {
+            return NextResponse.redirect(new URL("/dashboard", request.url));
+        }
     }
 
     return response;
@@ -73,13 +91,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * Feel free to modify this pattern to include more paths.
-         */
         "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     ],
 };

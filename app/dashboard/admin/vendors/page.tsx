@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Plus, Edit2, Trash2, Search, Building2, User, Smartphone, Mail, MapPin } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -9,7 +8,6 @@ import { Vendor } from '@/types/database'
 import Pagination from '@/components/Pagination'
 
 export default function VendorsPage() {
-    const { data: session, status } = useSession()
     const router = useRouter()
     const [vendors, setVendors] = useState<Vendor[]>([])
     const [loading, setLoading] = useState(true)
@@ -29,14 +27,29 @@ export default function VendorsPage() {
     })
 
     useEffect(() => {
-        if (status === 'unauthenticated') {
-            router.push('/login')
-        } else if (session?.user.role !== 'ADMIN' && session?.user.role !== 'MANAGER') {
-            router.push('/dashboard')
-        } else {
+        const checkAuth = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                router.push('/login')
+                return
+            }
+
+            // Fetch user role from public.users
+            const { data: profile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', user.id)
+                .single()
+
+            if (profile?.role !== 'ADMIN' && profile?.role !== 'MANAGER') {
+                router.push('/dashboard')
+                return
+            }
+
             fetchVendors()
         }
-    }, [status, session, router])
+        checkAuth()
+    }, [router])
 
     const fetchVendors = async () => {
         try {

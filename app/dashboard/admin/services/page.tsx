@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Plus, Edit2, Trash2, Search, Briefcase, Calendar, Sparkles } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -9,7 +8,6 @@ import { Service } from '@/types/database'
 import Pagination from '@/components/Pagination'
 
 export default function ServicesPage() {
-    const { data: session, status } = useSession()
     const router = useRouter()
     const [services, setServices] = useState<Service[]>([])
     const [loading, setLoading] = useState(true)
@@ -21,8 +19,29 @@ export default function ServicesPage() {
     const [serviceName, setServiceName] = useState('')
 
     useEffect(() => {
-        fetchServices()
-    }, [status, session, router])
+        const checkAuth = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                router.push('/login')
+                return
+            }
+
+            // Fetch user role from public.users
+            const { data: profile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', user.id)
+                .single()
+
+            if (profile?.role !== 'ADMIN') {
+                router.push('/dashboard')
+                return
+            }
+
+            fetchServices()
+        }
+        checkAuth()
+    }, [router])
 
     const fetchServices = async () => {
         try {

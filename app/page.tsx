@@ -1,16 +1,22 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 
 export default function HomePage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
 
   useEffect(() => {
-    // Temporarily bypassing auth for front-end preview
-    router.push('/dashboard')
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.push('/dashboard')
+      } else {
+        router.push('/login')
+      }
+    }
+    checkAuth()
   }, [router])
 
   return (

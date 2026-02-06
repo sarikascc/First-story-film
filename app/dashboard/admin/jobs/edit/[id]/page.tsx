@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Save, Info, AlertCircle, Percent } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -10,7 +9,6 @@ import { formatCurrency, calculateCommission } from '@/lib/utils'
 import AestheticSelect from '@/components/AestheticSelect'
 
 export default function EditJobPage() {
-    const { data: session, status } = useSession()
     const router = useRouter()
     const params = useParams()
     const jobId = params.id as string
@@ -38,9 +36,30 @@ export default function EditJobPage() {
     })
 
     useEffect(() => {
-        fetchFormData()
-        fetchJobDetails()
-    }, [])
+        const checkAuth = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                router.push('/login')
+                return
+            }
+
+            // Fetch user role from public.users
+            const { data: profile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', user.id)
+                .single()
+
+            if (profile?.role !== 'ADMIN' && profile?.role !== 'MANAGER') {
+                router.push('/dashboard')
+                return
+            }
+
+            fetchFormData()
+            fetchJobDetails()
+        }
+        checkAuth()
+    }, [router])
 
     const fetchJobDetails = async () => {
         try {

@@ -25,30 +25,39 @@ export default function DashboardLayout({
     const [session, setSession] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [userRole, setUserRole] = useState<string>('USER')
+    const [userName, setUserName] = useState<string>('')
     const pathname = usePathname()
     const router = useRouter()
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [showLogout, setShowLogout] = useState(false)
 
-    const fetchRole = async (userId: string) => {
-        console.log('Layout: Fetching role for', userId)
-        const { data, error } = await (supabase as any)
-            .from('users')
-            .select('role')
-            .eq('id', userId)
-            .single()
+    const fetchProfile = async (userId: string) => {
+        console.log('Layout: Fetching profile for', userId)
+        try {
+            // Use limit(1) instead of maybeSingle to avoid 406/PGRST116 issues
+            const { data: profileList, error } = await (supabase as any)
+                .from('users')
+                .select('role, name')
+                .eq('id', userId)
+                .limit(1)
 
-        if (error) {
-            console.error('Layout: Error fetching role:', error)
-            return
-        }
+            if (error) {
+                console.error('Layout: Supabase error fetching profile:', error.message, error.code)
+                return
+            }
 
-        if (data) {
-            const roleData = data as { role: string }
-            console.log('Layout: Role found:', roleData.role)
-            setUserRole(roleData.role)
-        } else {
-            console.log('Layout: No user data found')
+            if (profileList && profileList.length > 0) {
+                const profile = profileList[0] as { role: string; name: string }
+                console.log('Layout: Profile found:', profile)
+                setUserRole(profile.role)
+                setUserName(profile.name)
+            } else {
+                console.warn('Layout: No user profile record found in public.users for ID:', userId)
+                const { data: { user } } = await supabase.auth.getUser()
+                setUserName(user?.email?.split('@')[0] || 'User')
+            }
+        } catch (err: any) {
+            console.error('Layout: Unexpected error in fetchProfile:', err.message)
         }
     }
 
@@ -71,7 +80,7 @@ export default function DashboardLayout({
                 if (mounted && currentSession) {
                     setSession(currentSession)
                     if (currentSession.user) {
-                        await fetchRole(currentSession.user.id)
+                        await fetchProfile(currentSession.user.id)
                     }
                 }
             } catch (error: any) {
@@ -92,7 +101,7 @@ export default function DashboardLayout({
             if (mounted) {
                 setSession(session)
                 if (session?.user) {
-                    await fetchRole(session.user.id)
+                    await fetchProfile(session.user.id)
                 }
                 setLoading(false)
             }
@@ -217,13 +226,13 @@ export default function DashboardLayout({
                     >
                         <div className="relative">
                             <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-md">
-                                {session.user.name?.charAt(0).toUpperCase()}
+                                {userName?.charAt(0).toUpperCase() || 'U'}
                             </div>
                             <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
                         </div>
                         <div className="overflow-hidden flex-1">
                             <p className="font-bold text-xs text-slate-900 truncate">
-                                {userRole === 'ADMIN' ? 'Admin' : session.user.name}
+                                {userName || 'User'}
                             </p>
                         </div>
                         <div className={`text-slate-300 transition-transform duration-300 ${showLogout ? 'rotate-180 text-indigo-500' : ''}`}>
