@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Edit2, Trash2, Search, Percent, Smartphone, Mail, Users, X, Save, ArrowLeft, Calendar, ChevronDown, Building2, AlertTriangle } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Edit2, Trash2, Search, Percent, Smartphone, Mail, Users, X, Save, ArrowLeft, Calendar, ChevronDown, Building2, AlertTriangle, ExternalLink } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { User, Service, StaffServiceConfig } from '@/types/database'
 import Pagination from '@/components/Pagination'
+import Spinner from '@/components/Spinner'
 
 export default function StaffPage() {
     const router = useRouter()
@@ -37,20 +39,57 @@ export default function StaffPage() {
     const [showPasswordField, setShowPasswordField] = useState(false)
 
     useEffect(() => {
-        // Fire these immediately to reduce wait time
-        fetchStaff()
-        fetchServices()
+        let mounted = true;
         
-        // Fetch user in background for form data
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            if (user) setCurrentUser(user)
-        })
-    }, [router])
+        // Safety timeout
+        const timeout = setTimeout(() => {
+            if (mounted && loading) {
+                console.warn('StaffPage: Loading timeout triggered');
+                setLoading(false);
+            }
+        }, 5000);
+
+        const loadData = async () => {
+            try {
+                // Fetch staff and services
+                await Promise.all([fetchStaff(), fetchServices()]);
+                
+                if (mounted) {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) setCurrentUser(user);
+                }
+            } catch (err) {
+                console.error('StaffPage: Init error', err);
+            } finally {
+                if (mounted) {
+                    setLoading(false);
+                    clearTimeout(timeout);
+                }
+            }
+        };
+        loadData();
+        return () => { 
+            mounted = false;
+            clearTimeout(timeout);
+        };
+    }, []);
 
     const fetchServices = async () => {
-        const { data, error } = await supabase.from('services').select('*').order('name')
-        if (!error && data) setServices(data)
-    }
+        try {
+            const { data, error } = await supabase.from('services').select('*').order('name');
+            if (!error && data) setServices(data);
+        } catch (e) { console.error(e); }
+    };
+
+    const fetchStaff = async () => {
+        try {
+            const { data, error } = await supabase.from('users').select('*').order('name');
+            if (error) throw error;
+            setStaff(data || []);
+        } catch (error) {
+            console.error('Error fetching staff:', error);
+        }
+    };
 
     const handleAddCommission = () => {
         setCommissions([...commissions, { serviceId: '', percentage: 0 }])
@@ -85,11 +124,10 @@ export default function StaffPage() {
             name: member.name,
             email: member.email,
             mobile: member.mobile,
-            password: '', // Leave empty for no change
+            password: '', 
             role: member.role as any
         })
 
-        // Fetch commissions
         const { data, error } = await supabase
             .from('staff_service_configs')
             .select('*')
@@ -113,8 +151,6 @@ export default function StaffPage() {
 
         try {
             let userId = editingId
-
-            // Validation
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
             const mobileRegex = /^[0-9]{10}$/
 
@@ -131,7 +167,6 @@ export default function StaffPage() {
             }
 
             if (modalMode === 'create') {
-                // Call API to create user in Supabase Auth from server-side (to keep Admin logged in)
                 const response = await fetch('/api/admin/create-user', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -148,22 +183,14 @@ export default function StaffPage() {
                 if (!response.ok) throw new Error(data.error || 'Failed to create user')
                 userId = data.id
             } else {
-                if (!editingId) {
-                    setSubmitting(false)
-                    return
-                }
+                if (!editingId) return;
                 userId = editingId
-                // Update User (Profile data in public table)
                 const updateData: any = {
                     name: formData.name,
                     email: formData.email,
                     mobile: formData.mobile,
                     role: formData.role
                 }
-
-                // Password updates require a different flow in Supabase Auth (Admin API), 
-                // for now we'll skip password update in this simple modal or handle it via API too.
-                // Let's assume we update profile only here, and handle password separately or via API.
 
                 if (formData.password) {
                     const passResponse = await fetch('/api/admin/update-user', {
@@ -174,7 +201,6 @@ export default function StaffPage() {
                             password: formData.password
                         })
                     })
-
                     if (!passResponse.ok) {
                         const passData = await passResponse.json()
                         throw new Error(passData.error || 'Failed to update password')
@@ -188,14 +214,9 @@ export default function StaffPage() {
 
                 if (userError) throw userError
 
-                // Clear old commissions to resync
-                await supabase
-                    .from('staff_service_configs')
-                    .delete()
-                    .eq('staff_id', editingId)
+                await supabase.from('staff_service_configs').delete().eq('staff_id', editingId)
             }
 
-            // Sync Commissions (Only for USER role)
             if (formData.role === 'USER' && commissions.length > 0) {
                 const validCommissions = commissions
                     .filter(c => c.serviceId !== '')
@@ -209,7 +230,6 @@ export default function StaffPage() {
                     const { error: commError } = await (supabase
                         .from('staff_service_configs') as any)
                         .insert(validCommissions)
-
                     if (commError) throw commError
                 }
             }
@@ -221,22 +241,6 @@ export default function StaffPage() {
             alert(error.message || 'Error occurred while saving user.')
         } finally {
             setSubmitting(false)
-        }
-    }
-
-    const fetchStaff = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .order('name')
-
-            if (error) throw error
-            setStaff(data || [])
-        } catch (error) {
-            console.error('Error fetching staff:', error)
-        } finally {
-            setLoading(false)
         }
     }
 
@@ -287,11 +291,7 @@ export default function StaffPage() {
     }, [searchTerm])
 
     if (loading) {
-        return (
-            <div className="lg:ml-72 min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0369A1]"></div>
-            </div>
-        )
+        return <Spinner withSidebar />
     }
 
     return (
@@ -338,11 +338,11 @@ export default function StaffPage() {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50/30">
-                                    <th className="px-12 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">User Profile</th>
-                                    <th className="px-12 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Email</th>
-                                    <th className="px-12 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Mobile Number</th>
-                                    <th className="px-12 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">System Role</th>
-                                    <th className="px-12 py-3 text-right text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Actions</th>
+                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">User Profile</th>
+                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Email</th>
+                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Mobile Number</th>
+                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">System Role</th>
+                                    <th className="px-12 py-3 text-right text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -352,32 +352,36 @@ export default function StaffPage() {
                                             <div className="inline-flex p-5 bg-slate-50 rounded-full mb-3">
                                                 <Users size={28} className="text-slate-200" />
                                             </div>
-                                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">No staff members detected</p>
+                                            <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">No staff members detected</p>
                                         </td>
                                     </tr>
                                 ) : (
                                     paginatedStaff.map((member) => (
                                         <tr key={member.id} className="hover:bg-slate-50/50 transition-colors group/row">
                                             <td className="px-12 py-0.5">
-                                                <div className="text-sm font-bold text-slate-900 group-hover/row:text-indigo-600 transition-colors flex items-center">
-                                                    <div className="w-1 h-1 rounded-full bg-indigo-200 mr-3 opacity-0 group-hover/row:opacity-100 transition-all scale-0 group-hover/row:scale-100" />
+                                                <Link 
+                                                    href={`/dashboard/admin/staff/${member.id}`}
+                                                    className="text-base font-bold text-slate-900 hover:text-indigo-600 transition-colors flex items-center group/name"
+                                                >
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-200 mr-3 opacity-0 group-hover/row:opacity-100 transition-all scale-0 group-hover/row:scale-100" />
                                                     {member.name}
-                                                </div>
+                                                    <ExternalLink size={12} className="ml-2 text-slate-200 group-hover/name:text-indigo-400 transition-colors" />
+                                                </Link>
                                             </td>
                                             <td className="px-12 py-0.5">
-                                                <div className="text-[10px] text-slate-400 font-bold flex items-center">
-                                                    <Mail size={10} className="mr-2 text-indigo-300" />
+                                                <div className="text-xs text-slate-400 font-bold flex items-center">
+                                                    <Mail size={12} className="mr-2 text-indigo-300" />
                                                     {member.email}
                                                 </div>
                                             </td>
                                             <td className="px-12 py-0.5">
-                                                <div className="text-[10px] text-slate-400 font-bold flex items-center">
-                                                    <Smartphone size={10} className="mr-2 text-indigo-300" />
+                                                <div className="text-xs text-slate-400 font-bold flex items-center">
+                                                    <Smartphone size={12} className="mr-2 text-indigo-300" />
                                                     {member.mobile || 'N/A'}
                                                 </div>
                                             </td>
                                             <td className="px-12 py-0.5 text-center">
-                                                <span className={`inline-flex items-center px-2 py-0 rounded-full text-[8px] font-black uppercase tracking-[0.2em] border ${member.role === 'ADMIN' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.2em] border ${member.role === 'ADMIN' ? 'bg-rose-50 text-rose-600 border-rose-100' :
                                                     member.role === 'MANAGER' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                                         'bg-indigo-50 text-indigo-600 border-indigo-100'
                                                     }`}>
@@ -385,20 +389,20 @@ export default function StaffPage() {
                                                 </span>
                                             </td>
                                             <td className="px-12 py-0.5">
-                                                <div className="flex items-center justify-end space-x-1">
+                                                <div className="flex items-center justify-end space-x-2">
                                                     <button
                                                         onClick={() => handleEdit(member)}
-                                                        className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100"
+                                                        className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
                                                         title="Edit / Manage Commissions"
                                                     >
-                                                        <Edit2 size={12} />
+                                                        <Edit2 size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => confirmDelete(member)}
-                                                        className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100"
+                                                        className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
                                                         title="Delete User"
                                                     >
-                                                        <Trash2 size={12} />
+                                                        <Trash2 size={14} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -447,6 +451,55 @@ export default function StaffPage() {
                                             <input type="text" className="input-aesthetic h-11 py-0 text-sm" placeholder="John Doe" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
                                         </div>
                                         <div>
+                                            <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block ml-2">Mobile Number</label>
+                                            <input
+                                                type="tel"
+                                                pattern="[0-9]{10}"
+                                                maxLength={10}
+                                                className="input-aesthetic h-11 py-0 text-sm"
+                                                placeholder="10-digit number"
+                                                value={formData.mobile}
+                                                onChange={e => {
+                                                    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10)
+                                                    setFormData({ ...formData, mobile: val })
+                                                }}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block ml-2">Email Address</label>
+                                            <input type="email" className="input-aesthetic h-11 py-0 text-sm" placeholder="john@example.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block ml-2">Security Password</label>
+                                            {!showPasswordField && modalMode === 'edit' ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPasswordField(true)}
+                                                    className="w-full h-11 px-6 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest text-indigo-600 hover:bg-white hover:border-indigo-200 transition-all flex items-center justify-center gap-2 group/reset"
+                                                >
+                                                    <Save size={14} className="group-hover/reset:scale-110 transition-transform" />
+                                                    Reset User Password
+                                                </button>
+                                            ) : (
+                                                <input
+                                                    type="password"
+                                                    title="Set password"
+                                                    className="input-aesthetic h-11 py-0 text-sm"
+                                                    placeholder={modalMode === 'create' ? "Set password" : "Enter new password"}
+                                                    value={formData.password}
+                                                    onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                                    required={modalMode === 'create' || (modalMode === 'edit' && showPasswordField)}
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
                                             <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block ml-2">System Role</label>
                                             <div className="relative">
                                                 <div
@@ -486,53 +539,6 @@ export default function StaffPage() {
                                                 )}
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block ml-2">Email Address</label>
-                                            <input type="email" className="input-aesthetic h-11 py-0 text-sm" placeholder="john@example.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block ml-2">Mobile Number</label>
-                                            <input
-                                                type="tel"
-                                                pattern="[0-9]{10}"
-                                                maxLength={10}
-                                                className="input-aesthetic h-11 py-0 text-sm"
-                                                placeholder="10-digit number"
-                                                value={formData.mobile}
-                                                onChange={e => {
-                                                    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10)
-                                                    setFormData({ ...formData, mobile: val })
-                                                }}
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block ml-2">Security Password</label>
-                                        {!showPasswordField && modalMode === 'edit' ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPasswordField(true)}
-                                                className="w-full h-11 px-6 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest text-indigo-600 hover:bg-white hover:border-indigo-200 transition-all flex items-center justify-center gap-2 group/reset"
-                                            >
-                                                <Save size={14} className="group-hover/reset:scale-110 transition-transform" />
-                                                Reset User Password
-                                            </button>
-                                        ) : (
-                                            <input
-                                                type="password"
-                                                title="Set password"
-                                                className="input-aesthetic h-11 py-0 text-sm"
-                                                placeholder={modalMode === 'create' ? "Set password" : "Enter new password"}
-                                                value={formData.password}
-                                                onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                                required={modalMode === 'create' || (modalMode === 'edit' && showPasswordField)}
-                                            />
-                                        )}
                                     </div>
                                 </div>
 

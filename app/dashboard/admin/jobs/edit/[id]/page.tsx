@@ -42,8 +42,8 @@ export default function EditJobPage() {
 
     const fetchJobDetails = async () => {
         try {
-            const { data, error } = await supabase
-                .from('jobs')
+            const { data, error } = await (supabase
+                .from('jobs') as any)
                 .select('*')
                 .eq('id', jobId)
                 .single()

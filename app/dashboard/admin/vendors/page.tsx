@@ -6,6 +6,7 @@ import { Plus, Edit2, Trash2, Search, Building2, User, Smartphone, Mail, MapPin 
 import { supabase } from '@/lib/supabase'
 import { Vendor } from '@/types/database'
 import Pagination from '@/components/Pagination'
+import Spinner from '@/components/Spinner'
 
 export default function VendorsPage() {
     const router = useRouter()
@@ -142,11 +143,7 @@ export default function VendorsPage() {
     }, [searchTerm])
 
     if (loading && vendors.length === 0) {
-        return (
-            <div className="lg:ml-72 min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0369A1]"></div>
-            </div>
-        )
+        return <Spinner withSidebar />
     }
 
     return (
@@ -193,10 +190,10 @@ export default function VendorsPage() {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50/30">
-                                    <th className="px-12 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Studio Details</th>
-                                    <th className="px-12 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Contact Person</th>
-                                    <th className="px-12 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Contact Info</th>
-                                    <th className="px-12 py-3 text-right text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Actions</th>
+                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Studio Details</th>
+                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Contact Person</th>
+                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Contact Info</th>
+                                    <th className="px-12 py-3 text-right text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -206,53 +203,53 @@ export default function VendorsPage() {
                                             <div className="inline-flex p-5 bg-slate-50 rounded-full mb-3">
                                                 <Building2 size={28} className="text-slate-200" />
                                             </div>
-                                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">No vendors found</p>
+                                            <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">No vendors found</p>
                                         </td>
                                     </tr>
                                 ) : (
                                     paginatedVendors.map((vendor) => (
                                         <tr key={vendor.id} className="hover:bg-slate-50/50 transition-colors group/row">
                                             <td className="px-12 py-0.5">
-                                                <div className="text-sm font-bold text-slate-900 group-hover/row:text-indigo-600 transition-colors flex items-center">
-                                                    <div className="w-1 h-1 rounded-full bg-indigo-200 mr-3 opacity-0 group-hover/row:opacity-100 transition-all scale-0 group-hover/row:scale-100" />
+                                                <div className="text-base font-bold text-slate-900 group-hover/row:text-indigo-600 transition-colors flex items-center">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-200 mr-3 opacity-0 group-hover/row:opacity-100 transition-all scale-0 group-hover/row:scale-100" />
                                                     {vendor.studio_name}
                                                 </div>
-                                                <div className="text-[9px] text-slate-400 font-bold mt-0.5 ml-4">{vendor.location || 'No Location Set'}</div>
+                                                <div className="text-[10px] text-slate-400 font-bold mt-1 ml-4.5">{vendor.location || 'No Location Set'}</div>
                                             </td>
                                             <td className="px-12 py-0.5">
-                                                <div className="text-[10px] text-slate-400 font-bold flex items-center">
-                                                    <User size={10} className="mr-2 text-indigo-300" />
+                                                <div className="text-[11px] text-slate-400 font-bold flex items-center">
+                                                    <User size={12} className="mr-2 text-indigo-300" />
                                                     {vendor.contact_person}
                                                 </div>
                                             </td>
                                             <td className="px-12 py-0.5">
-                                                <div className="flex flex-col space-y-0.5">
-                                                    <div className="text-[10px] text-slate-400 font-bold flex items-center">
-                                                        <Smartphone size={10} className="mr-2 text-indigo-300" />
+                                                <div className="flex flex-col space-y-1">
+                                                    <div className="text-[11px] text-slate-400 font-bold flex items-center">
+                                                        <Smartphone size={12} className="mr-2 text-indigo-300" />
                                                         {vendor.mobile}
                                                     </div>
                                                     {vendor.email && (
-                                                        <div className="text-[9px] text-slate-300 font-bold ml-4">
+                                                        <div className="text-[10px] text-slate-300 font-bold ml-4.5">
                                                             {vendor.email}
                                                         </div>
                                                     )}
                                                 </div>
                                             </td>
                                             <td className="px-12 py-0.5">
-                                                <div className="flex items-center justify-end space-x-1">
+                                                <div className="flex items-center justify-end space-x-2">
                                                     <button
                                                         onClick={() => openEditModal(vendor)}
-                                                        className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100"
+                                                        className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
                                                         title="Edit Vendor"
                                                     >
-                                                        <Edit2 size={12} />
+                                                        <Edit2 size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleDelete(vendor.id)}
-                                                        className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100"
+                                                        className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
                                                         title="Delete Vendor"
                                                     >
-                                                        <Trash2 size={12} />
+                                                        <Trash2 size={14} />
                                                     </button>
                                                 </div>
                                             </td>

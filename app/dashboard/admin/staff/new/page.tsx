@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Save, Plus, X, Percent } from 'lucide-react'
+import { ArrowLeft, Save, Plus, X, Percent, ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Service } from '@/types/database'
 
@@ -12,6 +12,7 @@ export default function NewUserPage() {
     const [loading, setLoading] = useState(false)
     const [services, setServices] = useState<Service[]>([])
     const [currentUser, setCurrentUser] = useState<any>(null)
+    const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false)
 
     // Form State
     const [formData, setFormData] = useState({
@@ -19,6 +20,7 @@ export default function NewUserPage() {
         email: '',
         mobile: '',
         password: '',
+        role: 'USER'
     })
 
     // Commission Config State
@@ -69,7 +71,7 @@ export default function NewUserPage() {
                     password: formData.password,
                     name: formData.name,
                     mobile: formData.mobile,
-                    role: 'USER'
+                    role: formData.role
                 })
             })
 
@@ -140,17 +142,6 @@ export default function NewUserPage() {
                                 />
                             </div>
                             <div>
-                                <label className="label text-[10px] uppercase font-black tracking-widest text-slate-400 mb-2 block">Email Address</label>
-                                <input
-                                    type="email"
-                                    className="input-aesthetic h-12 px-4 text-sm"
-                                    placeholder="name@firststory.com"
-                                    value={formData.email}
-                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div>
                                 <label className="label text-[10px] uppercase font-black tracking-widest text-slate-400 mb-2 block">Mobile Number</label>
                                 <input
                                     type="tel"
@@ -158,6 +149,17 @@ export default function NewUserPage() {
                                     placeholder="+91 00000 00000"
                                     value={formData.mobile}
                                     onChange={e => setFormData({ ...formData, mobile: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="label text-[10px] uppercase font-black tracking-widest text-slate-400 mb-2 block">Email Address</label>
+                                <input
+                                    type="email"
+                                    className="input-aesthetic h-12 px-4 text-sm"
+                                    placeholder="name@firststory.com"
+                                    value={formData.email}
+                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
                                     required
                                 />
                             </div>
@@ -171,6 +173,46 @@ export default function NewUserPage() {
                                     onChange={e => setFormData({ ...formData, password: e.target.value })}
                                     required
                                 />
+                            </div>
+                            <div>
+                                <label className="label text-[10px] uppercase font-black tracking-widest text-slate-400 mb-2 block">System Role</label>
+                                <div className="relative">
+                                    <div
+                                        onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
+                                        className="input-aesthetic h-12 flex items-center justify-between cursor-pointer px-6 bg-white border-slate-200"
+                                    >
+                                        <span className="text-xs font-black uppercase tracking-widest text-indigo-600">
+                                            {formData.role === 'USER' ? 'Staff / User' : formData.role === 'MANAGER' ? 'Manager' : 'Administrator'}
+                                        </span>
+                                        <ChevronDown size={14} className={`text-indigo-400 transition-transform ${isRoleDropdownOpen ? 'rotate-180' : ''}`} />
+                                    </div>
+
+                                    {isRoleDropdownOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-[60]" onClick={() => setIsRoleDropdownOpen(false)} />
+                                            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-[70] animate-in fade-in slide-in-from-top-2 duration-200">
+                                                {[
+                                                    { value: 'USER', label: 'Staff / User' },
+                                                    { value: 'MANAGER', label: 'Manager' },
+                                                    { value: 'ADMIN', label: 'Administrator' }
+                                                ].map(opt => (
+                                                    <div
+                                                        key={opt.value}
+                                                        onClick={() => {
+                                                            setFormData({ ...formData, role: opt.value as any });
+                                                            setIsRoleDropdownOpen(false);
+                                                        }}
+                                                        className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors
+                                                            ${formData.role === opt.value ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-50 hover:text-indigo-600'}
+                                                        `}
+                                                    >
+                                                        {opt.label}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </section>

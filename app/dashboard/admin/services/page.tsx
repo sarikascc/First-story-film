@@ -6,6 +6,7 @@ import { Plus, Edit2, Trash2, Search, Briefcase, Calendar, Sparkles } from 'luci
 import { supabase } from '@/lib/supabase'
 import { Service } from '@/types/database'
 import Pagination from '@/components/Pagination'
+import Spinner from '@/components/Spinner'
 
 export default function ServicesPage() {
     const router = useRouter()
@@ -104,11 +105,7 @@ export default function ServicesPage() {
     }, [searchTerm])
 
     if (loading) {
-        return (
-            <div className="lg:ml-72 min-h-screen bg-[#f8fafc] flex items-center justify-center">
-                <div className="w-12 h-12 border-4 border-indigo-600/10 border-t-indigo-600 rounded-full animate-spin"></div>
-            </div>
-        )
+        return <Spinner withSidebar />
     }
 
     return (
@@ -155,9 +152,9 @@ export default function ServicesPage() {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50/30">
-                                    <th className="px-12 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Service Name</th>
-                                    <th className="px-12 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Date Created</th>
-                                    <th className="px-12 py-3 text-right text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Actions</th>
+                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Service Name</th>
+                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Date Created</th>
+                                    <th className="px-12 py-3 text-right text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -167,39 +164,39 @@ export default function ServicesPage() {
                                             <div className="inline-flex p-5 bg-slate-50 rounded-full mb-3">
                                                 <Briefcase size={28} className="text-slate-200" />
                                             </div>
-                                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">No services found</p>
+                                            <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">No services found</p>
                                         </td>
                                     </tr>
                                 ) : (
                                     paginatedServices.map((service) => (
                                         <tr key={service.id} className="hover:bg-slate-50/50 transition-colors group/row">
                                             <td className="px-12 py-0.5">
-                                                <div className="text-sm font-bold text-slate-900 group-hover/row:text-indigo-600 transition-colors flex items-center">
-                                                    <div className="w-1 h-1 rounded-full bg-indigo-200 mr-3 opacity-0 group-hover/row:opacity-100 transition-all scale-0 group-hover/row:scale-100" />
+                                                <div className="text-base font-bold text-slate-900 group-hover/row:text-indigo-600 transition-colors flex items-center">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-200 mr-3 opacity-0 group-hover/row:opacity-100 transition-all scale-0 group-hover/row:scale-100" />
                                                     {service.name}
                                                 </div>
                                             </td>
                                             <td className="px-12 py-0.5">
-                                                <div className="flex items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                                    <Calendar size={10} className="mr-2 text-indigo-300" />
+                                                <div className="flex items-center text-[11px] font-black uppercase tracking-widest text-slate-400">
+                                                    <Calendar size={14} className="mr-2 text-indigo-300" />
                                                     {new Date(service.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                                 </div>
                                             </td>
                                             <td className="px-12 py-0.5">
-                                                <div className="flex items-center justify-end space-x-1">
+                                                <div className="flex items-center justify-end space-x-2">
                                                     <button
                                                         onClick={() => openEditModal(service)}
-                                                        className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100"
+                                                        className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
                                                         title="Edit"
                                                     >
-                                                        <Edit2 size={12} />
+                                                        <Edit2 size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleDelete(service.id)}
-                                                        className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100"
+                                                        className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
                                                         title="Delete"
                                                     >
-                                                        <Trash2 size={12} />
+                                                        <Trash2 size={14} />
                                                     </button>
                                                 </div>
                                             </td>

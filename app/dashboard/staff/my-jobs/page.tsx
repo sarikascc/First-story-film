@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Play, Square, Pause, ExternalLink, Calendar, MapPin, CheckCircle2, Search, Clock, Building2, ChevronDown } from 'lucide-react'
+import Link from 'next/link'
+import { Play, Square, Pause, ExternalLink, Calendar, MapPin, CheckCircle2, Search, Clock, Building2, ChevronDown, Layout } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Job } from '@/types/database'
 import { getStatusColor, getStatusLabel } from '@/lib/utils'
 import Pagination from '@/components/Pagination'
 import AestheticSelect from '@/components/AestheticSelect'
+import Spinner from '@/components/Spinner'
 
 export default function MyJobsPage() {
     const router = useRouter()
@@ -116,11 +118,7 @@ export default function MyJobsPage() {
     )
 
     if (loading && jobs.length === 0) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] lg:ml-72">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-            </div>
-        )
+        return <Spinner />
     }
 
     return (
@@ -155,11 +153,11 @@ export default function MyJobsPage() {
                         <table className="w-full text-left border-collapse min-w-[700px]">
                             <thead>
                                 <tr className="bg-slate-50/50 border-b border-slate-100">
-                                    <th className="px-4 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Job Details</th>
-                                    <th className="px-4 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Studio</th>
-                                    <th className="px-4 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Status</th>
-                                    <th className="px-4 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">Due Date</th>
-                                    <th className="px-4 py-1 text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 text-right pr-6">Update</th>
+                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Job Details</th>
+                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Studio</th>
+                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Status</th>
+                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Due Date</th>
+                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 text-right pr-6">Update</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -177,19 +175,25 @@ export default function MyJobsPage() {
                                     paginatedJobs.map((job) => (
                                         <tr key={job.id} className="hover:bg-indigo-50/10 transition-colors group/row">
                                             <td className="px-4 py-0.5">
-                                                <div className="font-bold text-slate-900 text-[11px] group-hover/row:text-indigo-600 transition-colors leading-tight mb-0.5">{job.service?.name || 'Manual Project'}</div>
-                                                <div className="text-[8px] text-slate-400 line-clamp-1 font-medium">{job.description}</div>
+                                                <Link 
+                                                    href={`/dashboard/staff/my-jobs/view/${job.id}`}
+                                                    className="font-bold text-slate-900 text-[13px] group-hover/row:text-indigo-600 transition-colors leading-tight mb-0.5 flex items-center group/link"
+                                                >
+                                                    {job.service?.name || 'Manual Project'}
+                                                    <ExternalLink size={10} className="ml-2 text-slate-200 group-hover/link:text-indigo-400 opacity-0 group-hover/link:opacity-100 transition-all" />
+                                                </Link>
+                                                <div className="text-[10px] text-slate-400 line-clamp-1 font-bold">{job.description}</div>
                                             </td>
                                             <td className="px-4 py-0.5">
-                                                <div className="flex items-center text-[10px] font-bold text-slate-600">
+                                                <div className="flex items-center text-[11px] font-bold text-slate-600">
                                                     <div className="w-5 h-5 bg-slate-100 rounded-lg flex items-center justify-center mr-2 group-hover/row:bg-indigo-600 group-hover/row:text-white transition-colors">
-                                                        <Building2 size={10} />
+                                                        <Building2 size={12} />
                                                     </div>
                                                     {job.vendor?.studio_name || 'Individual'}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-0.5">
-                                                <div className={`inline-flex px-1.5 py-0 rounded-full text-[8px] font-black uppercase tracking-widest border ${job.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                <div className={`inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${job.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                                     job.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                                         'bg-indigo-50 text-indigo-600 border-indigo-100'
                                                     }`}>
@@ -197,8 +201,8 @@ export default function MyJobsPage() {
                                                 </div>
                                             </td>
                                             <td className="px-4 py-0.5">
-                                                <div className="flex items-center text-[8px] font-bold text-slate-500 tracking-wider">
-                                                    <Calendar size={10} className="mr-1.5 text-indigo-400" />
+                                                <div className="flex items-center text-[10px] font-bold text-slate-500 tracking-wider">
+                                                    <Calendar size={12} className="mr-1.5 text-indigo-400" />
                                                     {new Date(job.job_due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                                 </div>
                                             </td>

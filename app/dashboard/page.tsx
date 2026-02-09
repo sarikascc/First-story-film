@@ -19,6 +19,7 @@ import {
     Sparkles
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import Spinner from '@/components/Spinner'
 
 export default function DashboardPage() {
     const [session, setSession] = useState<any>(null)
@@ -33,9 +34,18 @@ export default function DashboardPage() {
     })
 
     useEffect(() => {
+        let mounted = true
+        const timeout = setTimeout(() => {
+            if (mounted && loading) {
+                console.warn('Dashboard: Loading timeout')
+                setLoading(false)
+            }
+        }, 5000)
+
         const init = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession()
+                if (!mounted) return
                 setSession(session)
 
                 if (session?.user?.id) {
@@ -82,28 +92,33 @@ export default function DashboardPage() {
 
                     const safeJobs = (jobs || []) as { status: string }[]
 
-                    setStats({
-                        totalJobs: totalJobs || 0,
-                        inProgress: safeJobs.filter(j => j.status === 'IN_PROGRESS').length,
-                        completed: safeJobs.filter(j => j.status === 'COMPLETED').length,
-                        totalUsers: totalUsers || 0
-                    })
+                    if (mounted) {
+                        setStats({
+                            totalJobs: totalJobs || 0,
+                            inProgress: safeJobs.filter(j => j.status === 'IN_PROGRESS').length,
+                            completed: safeJobs.filter(j => j.status === 'COMPLETED').length,
+                            totalUsers: totalUsers || 0
+                        })
+                    }
                 }
             } catch (err) {
                 console.error('Dashboard: Unexpected error in init:', err)
             } finally {
-                setLoading(false)
+                if (mounted) {
+                    setLoading(false)
+                    clearTimeout(timeout)
+                }
             }
         }
         init()
+        return () => {
+            mounted = false
+            clearTimeout(timeout)
+        }
     }, [])
 
     if (loading) {
-        return (
-            <div className="lg:ml-72 min-h-screen bg-[#f8fafc] flex items-center justify-center">
-                <div className="w-12 h-12 border-4 border-indigo-500/10 border-t-indigo-600 rounded-full animate-spin"></div>
-            </div>
-        )
+        return <Spinner withSidebar />
     }
     if (!session) return null
 

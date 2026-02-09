@@ -15,6 +15,7 @@ import {
     Sparkles
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import Spinner from '@/components/Spinner'
 
 export default function DashboardLayout({
     children,
@@ -32,94 +33,82 @@ export default function DashboardLayout({
     const [showLogout, setShowLogout] = useState(false)
 
     const fetchProfile = async (userId: string) => {
-        console.log('Layout: Fetching profile for', userId)
         try {
-            // Use limit(1) instead of maybeSingle to avoid 406/PGRST116 issues
-            const { data: profileList, error } = await (supabase as any)
+            const { data: profileList, error } = await supabase
                 .from('users')
                 .select('role, name')
                 .eq('id', userId)
                 .limit(1)
 
             if (error) {
-                console.error('Layout: Supabase error fetching profile:', error.message, error.code)
+                console.error('Layout: Profile fetch error:', error)
                 return
             }
 
             if (profileList && profileList.length > 0) {
-                const profile = profileList[0] as { role: string; name: string }
-                console.log('Layout: Profile found:', profile)
-                setUserRole(profile.role)
-                setUserName(profile.name)
-            } else {
-                console.warn('Layout: No user profile record found in public.users for ID:', userId)
-                const { data: { user } } = await supabase.auth.getUser()
-                setUserName(user?.email?.split('@')[0] || 'User')
+                const profile = profileList[0]
+                setUserRole(profile.role || 'USER')
+                setUserName(profile.name || '')
             }
-        } catch (err: any) {
-            console.error('Layout: Unexpected error in fetchProfile:', err.message)
+        } catch (err) {
+            console.error('Layout: Unexpected profile error:', err)
         }
     }
 
     useEffect(() => {
         let mounted = true
 
+        // Safety fallback: ensure loading is released even if auth hangs
+        const timeout = setTimeout(() => {
+            if (mounted && loading) {
+                console.warn('Layout: Auth timeout fallback triggered')
+                setLoading(false)
+            }
+        }, 3000)
+
         const init = async () => {
             try {
-                // Use getSession but catch the "Abort" error which is harmless
-                const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession()
+                const { data: { session: currentSession } } = await supabase.auth.getSession()
 
-                if (sessionError) {
-                    if (sessionError.message?.includes('aborted')) {
-                        console.log('Layout: Session fetch aborted (harmless)')
-                    } else {
-                        console.error('Layout: Session error', sessionError)
-                    }
-                }
-
-                if (mounted && currentSession) {
+                if (mounted) {
                     setSession(currentSession)
-                    if (currentSession.user) {
-                        await fetchProfile(currentSession.user.id)
+                    if (currentSession?.user) {
+                        fetchProfile(currentSession.user.id)
                     }
                 }
-            } catch (error: any) {
-                if (error.name !== 'AbortError') {
-                    console.error('Layout: Unexpected session init error', error)
-                }
+            } catch (error) {
+                console.error('Layout: Init error:', error)
             } finally {
-                if (mounted) setLoading(false)
+                if (mounted) {
+                    setLoading(false)
+                    clearTimeout(timeout)
+                }
             }
         }
 
-
         init()
 
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             if (mounted) {
                 setSession(session)
                 if (session?.user) {
-                    await fetchProfile(session.user.id)
+                    fetchProfile(session.user.id)
                 }
                 setLoading(false)
+                clearTimeout(timeout)
             }
         })
 
         return () => {
             mounted = false
+            clearTimeout(timeout)
             subscription.unsubscribe()
         }
     }, [])
 
 
     if (loading) {
-        return (
-            <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
-                <div className="w-12 h-12 border-4 border-indigo-500/10 border-t-indigo-600 rounded-full animate-spin"></div>
-            </div>
-        )
+        return <Spinner fullScreen />
     }
 
     if (!session) return null
