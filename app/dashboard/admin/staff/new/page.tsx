@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Save, Plus, X, Percent, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Save, Plus, X, Percent, ChevronDown, CheckCircle, XCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Service } from '@/types/database'
 
@@ -13,6 +13,12 @@ export default function NewUserPage() {
     const [services, setServices] = useState<Service[]>([])
     const [currentUser, setCurrentUser] = useState<any>(null)
     const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false)
+    const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
+
+    const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+        setNotification({ message, type })
+        setTimeout(() => setNotification(null), 3500)
+    }
 
     // Form State
     const [formData, setFormData] = useState({
@@ -99,10 +105,11 @@ export default function NewUserPage() {
                 }
             }
 
-            router.push('/dashboard/admin/staff')
+            showNotification('Staff member registered successfully!')
+            setTimeout(() => router.push('/dashboard/admin/staff'), 1000)
         } catch (error: any) {
             console.error('Error creating user:', error)
-            alert(error.message || 'Error occurred while creating user.')
+            showNotification(error.message || 'Error occurred while creating user.', 'error')
         } finally {
             setLoading(false)
         }
@@ -302,6 +309,24 @@ export default function NewUserPage() {
                     </div>
                 </form>
             </div>
+
+            {/* Notification Toast */}
+            {notification && (
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className={`flex items-center space-x-3 px-6 py-3 rounded-2xl shadow-2xl border ${
+                        notification.type === 'success' 
+                            ? 'bg-emerald-500 border-emerald-400 text-white' 
+                            : 'bg-rose-500 border-rose-400 text-white'
+                    }`}>
+                        {notification.type === 'success' ? (
+                            <CheckCircle size={18} className="text-white" />
+                        ) : (
+                            <XCircle size={18} className="text-white" />
+                        )}
+                        <p className="text-[11px] font-black uppercase tracking-widest">{notification.message}</p>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

@@ -25,7 +25,7 @@ export default function DashboardLayout({
 
     const [session, setSession] = useState<any>(null)
     const [loading, setLoading] = useState(true)
-    const [userRole, setUserRole] = useState<string>('USER')
+    const [userRole, setUserRole] = useState<string | null>(null) // Start as null to avoid "USER" flicker
     const [userName, setUserName] = useState<string>('')
     const pathname = usePathname()
     const router = useRouter()
@@ -33,6 +33,9 @@ export default function DashboardLayout({
     const [showLogout, setShowLogout] = useState(false)
 
     const fetchProfile = async (userId: string) => {
+        // Prevent redundant fetches if we already have the profile for this user
+        if (session?.user?.id === userId && userRole !== null) return;
+        
         try {
             const { data: profileList, error } = await supabase
                 .from('users')
@@ -42,6 +45,7 @@ export default function DashboardLayout({
 
             if (error) {
                 console.error('Layout: Profile fetch error:', error)
+                if (userRole === null) setUserRole('USER')
                 return
             }
 
@@ -49,31 +53,26 @@ export default function DashboardLayout({
                 const profile = profileList[0] as { role?: string; name?: string }
                 setUserRole(profile.role || 'USER')
                 setUserName(profile.name || '')
+            } else {
+                if (userRole === null) setUserRole('USER')
             }
         } catch (err) {
             console.error('Layout: Unexpected profile error:', err)
+            if (userRole === null) setUserRole('USER')
         }
     }
 
     useEffect(() => {
         let mounted = true
 
-        // Safety fallback: ensure loading is released even if auth hangs
-        const timeout = setTimeout(() => {
-            if (mounted && loading) {
-                console.warn('Layout: Auth timeout fallback triggered')
-                setLoading(false)
-            }
-        }, 3000)
-
         const init = async () => {
             try {
                 const { data: { session: currentSession } } = await supabase.auth.getSession()
 
                 if (mounted) {
-                    setSession(currentSession)
                     if (currentSession?.user) {
-                        fetchProfile(currentSession.user.id)
+                        setSession(currentSession)
+                        await fetchProfile(currentSession.user.id)
                     }
                 }
             } catch (error) {
@@ -81,33 +80,39 @@ export default function DashboardLayout({
             } finally {
                 if (mounted) {
                     setLoading(false)
-                    clearTimeout(timeout)
                 }
             }
         }
 
         init()
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (mounted) {
-                setSession(session)
-                if (session?.user) {
-                    fetchProfile(session.user.id)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+            if (!mounted) return
+
+            // Only act if the session actually changed or it's a signed-in event
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || newSession?.user?.id !== session?.user?.id) {
+                setSession(newSession)
+                if (newSession?.user) {
+                    await fetchProfile(newSession.user.id)
                 }
-                setLoading(false)
-                clearTimeout(timeout)
+            } else if (event === 'SIGNED_OUT') {
+                setSession(null)
+                setUserRole(null)
+                router.push('/login')
             }
+            
+            // Never set loading back to true here
+            setLoading(false)
         })
 
         return () => {
             mounted = false
-            clearTimeout(timeout)
             subscription.unsubscribe()
         }
-    }, [])
+    }, []) // Removed dependency to avoid redundant trigger on session object identity change
 
 
-    if (loading) {
+    if (loading || (session && userRole === null)) {
         return <Spinner fullScreen />
     }
 
@@ -138,7 +143,7 @@ export default function DashboardLayout({
     const navItems = isAdmin ? adminNavItems : isManager ? managerNavItems : staffNavItems
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-body selection:bg-indigo-500/20">
+        <div className="min-h-screen bg-[#f1f5f9] text-slate-800 font-body selection:bg-indigo-500/20">
             {/* Mobile Navigation Trigger */}
             <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -149,8 +154,8 @@ export default function DashboardLayout({
 
             {/* Premium Light Sidebar */}
             <aside
-                className={`fixed top-0 left-0 h-full w-72 bg-white border-r border-slate-200 p-8 transition-all duration-500 ease-in-out z-40 flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-                    } lg:translate-x-0`}
+                className={`fixed top-0 left-0 h-full w-72 bg-white border-r border-slate-200 p-8 z-40 flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                    } lg:translate-x-0 transition-transform duration-300 ease-in-out`}
             >
                 {/* Branding */}
                 <div className="mb-12">

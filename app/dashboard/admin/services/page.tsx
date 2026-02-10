@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Edit2, Trash2, Search, Briefcase, Calendar, Sparkles } from 'lucide-react'
+import { Plus, Edit2, Trash2, Search, Briefcase, Calendar, Sparkles, CheckCircle, XCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Service } from '@/types/database'
 import Pagination from '@/components/Pagination'
@@ -18,6 +18,12 @@ export default function ServicesPage() {
     const [showModal, setShowModal] = useState(false)
     const [editingService, setEditingService] = useState<Service | null>(null)
     const [serviceName, setServiceName] = useState('')
+    const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
+
+    const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+        setNotification({ message, type })
+        setTimeout(() => setNotification(null), 3500)
+    }
 
     useEffect(() => {
         fetchServices()
@@ -48,11 +54,13 @@ export default function ServicesPage() {
                     .update({ name: serviceName })
                     .eq('id', editingService.id)
                 if (error) throw error
+                showNotification('Service updated successfully')
             } else {
                 const { error } = await (supabase as any)
                     .from('services')
                     .insert([{ name: serviceName }])
                 if (error) throw error
+                showNotification('Service created successfully')
             }
             setShowModal(false)
             setServiceName('')
@@ -60,6 +68,7 @@ export default function ServicesPage() {
             fetchServices()
         } catch (error) {
             console.error('Error saving service:', error)
+            showNotification('Error saving service', 'error')
         }
     }
 
@@ -71,10 +80,11 @@ export default function ServicesPage() {
                 .delete()
                 .eq('id', id)
             if (error) throw error
+            showNotification('Service deleted successfully')
             fetchServices()
         } catch (error) {
             console.error('Error deleting service:', error)
-            alert('Error deleting service. It may be in use by jobs.')
+            showNotification('Error deleting service. It may be in use by jobs.', 'error')
         }
     }
 
@@ -104,15 +114,12 @@ export default function ServicesPage() {
         setCurrentPage(1)
     }, [searchTerm])
 
-    if (loading) {
-        return <Spinner withSidebar />
-    }
 
     return (
         <div className="min-h-screen bg-[#f1f5f9] text-slate-800 lg:ml-72">
             <div className="w-full px-2 py-4 lg:px-4 lg:py-8">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 animate-slide-up px-2">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 px-2">
                     <div className="flex items-center space-x-4">
                         <div className="w-12 h-12 bg-indigo-600 rounded-[1.25rem] shadow-lg shadow-indigo-100 flex items-center justify-center">
                             <Briefcase size={20} className="text-white" />
@@ -124,7 +131,7 @@ export default function ServicesPage() {
                 </div>
 
                 {/* Main Operations Card */}
-                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-xl overflow-hidden animate-slide-up [animation-delay:200ms]">
+                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-xl overflow-hidden">
                     
                     {/* Toolbar Inside Card */}
                     <div className="px-12 py-5 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -148,7 +155,12 @@ export default function ServicesPage() {
                     </div>
 
                     {/* Table */}
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto relative">
+                        {loading && services.length === 0 ? (
+                            <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center z-10">
+                                <Spinner />
+                            </div>
+                        ) : null}
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-100/80 border-b border-slate-200">
@@ -158,7 +170,7 @@ export default function ServicesPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {paginatedServices.length === 0 ? (
+                                {paginatedServices.length === 0 && !loading ? (
                                     <tr>
                                         <td colSpan={3} className="py-20 text-center">
                                             <div className="inline-flex p-5 bg-slate-50 rounded-full mb-3">
@@ -253,6 +265,24 @@ export default function ServicesPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Notification Toast */}
+            {notification && (
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className={`flex items-center space-x-3 px-6 py-3 rounded-2xl shadow-2xl border ${
+                        notification.type === 'success' 
+                            ? 'bg-emerald-500 border-emerald-400 text-white' 
+                            : 'bg-rose-500 border-rose-400 text-white'
+                    }`}>
+                        {notification.type === 'success' ? (
+                            <CheckCircle size={18} className="text-white" />
+                        ) : (
+                            <XCircle size={18} className="text-white" />
+                        )}
+                        <p className="text-[11px] font-black uppercase tracking-widest">{notification.message}</p>
                     </div>
                 </div>
             )}

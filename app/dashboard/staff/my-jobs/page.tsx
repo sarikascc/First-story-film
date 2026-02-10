@@ -3,12 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Play, Square, Pause, ExternalLink, Calendar, MapPin, CheckCircle2, Search, Clock, Building2, ChevronDown, Layout } from 'lucide-react'
+import { Play, Square, Pause, ExternalLink, Calendar, MapPin, CheckCircle2, Search, Clock, Building2, ChevronDown, Layout, Zap, Eye } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Job } from '@/types/database'
 import { getStatusColor, getStatusLabel } from '@/lib/utils'
 import Pagination from '@/components/Pagination'
-import AestheticSelect from '@/components/AestheticSelect'
 import Spinner from '@/components/Spinner'
 
 export default function MyJobsPage() {
@@ -119,53 +118,64 @@ export default function MyJobsPage() {
         currentPage * ITEMS_PER_PAGE
     )
 
-    if (loading && jobs.length === 0) {
-        return <Spinner />
-    }
-
     return (
-        <div className="min-h-screen bg-[#f1f5f9] lg:ml-72 p-6 lg:p-10 text-slate-900 font-body">
-            <div className="max-w-6xl mx-auto">
-                <div className="mb-6 animate-slide-up">
-                    <h1 className="text-3xl font-bold text-slate-900 font-heading tracking-tight uppercase flex items-center gap-4">
-                        My Production Jobs
-                        {debugCount !== null && (
-                            <span className="text-[10px] bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full font-black tracking-widest">
-                                {debugCount} ASSIGNED
-                            </span>
-                        )}
-                    </h1>
+        <div className="min-h-screen bg-[#f1f5f9] lg:ml-72 relative">
+            {loading && jobs.length === 0 && (
+                <div className="absolute inset-0 bg-[#f1f5f9] z-50 flex items-center justify-center">
+                    <Spinner />
                 </div>
-
-                <div className="mb-6 group animate-slide-up [animation-delay:200ms]">
-                    <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Search by job name or instructions..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="input-aesthetic pl-12 h-12 bg-slate-100/80 border border-slate-200 shadow-sm w-full text-sm rounded-2xl"
-                        />
+            )}
+            <div className="w-full px-2 py-4 lg:px-4 lg:py-8">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 px-2">
+                    <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-indigo-600 rounded-[1.25rem] shadow-lg shadow-indigo-100 flex items-center justify-center">
+                            <Layout size={20} className="text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-black text-slate-900 font-heading tracking-tight leading-tight uppercase flex items-center gap-4">
+                                My Jobs
+                                {debugCount !== null && (
+                                    <span className="text-[10px] bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full font-black tracking-widest">
+                                        {debugCount} ASSIGNED
+                                    </span>
+                                )}
+                            </h1>
+                        </div>
                     </div>
                 </div>
 
-                <div className="card-aesthetic p-0 bg-white border-none shadow-xl animate-slide-up [animation-delay:400ms] relative z-10">
-                    <div className="overflow-visible pb-12">
-                        <table className="w-full text-left border-collapse min-w-[700px]">
+                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-xl overflow-hidden">
+                    
+                    {/* Toolbar Inside Card */}
+                    <div className="px-6 py-5 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="relative w-full md:w-[350px] group">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={14} />
+                            <input
+                                type="text"
+                                placeholder="Search by job details or studio..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 h-9 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-400 shadow-inner"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto relative">
+                        <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-100/80 border-b border-slate-200">
-                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Job Details</th>
                                     <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Studio</th>
-                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Status</th>
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Job Type</th>
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Work Description</th>
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 text-center">Status</th>
                                     <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Due Date</th>
-                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 text-right pr-6">Update</th>
+                                    <th className="px-4 py-4 text-center text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Update</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {paginatedJobs.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="py-20 text-center">
+                                        <td colSpan={6} className="py-20 text-center">
                                             <div className="animate-pulse">
                                                 <CheckCircle2 size={72} className="mx-auto text-slate-100 mb-8" />
                                                 <h2 className="text-3xl font-black text-slate-200 uppercase tracking-[0.2em] font-heading">Clear Skies</h2>
@@ -180,48 +190,74 @@ export default function MyJobsPage() {
                                             onClick={() => router.push(`/dashboard/staff/my-jobs/view/${job.id}`)}
                                             className="hover:bg-indigo-50/10 transition-colors group/row cursor-pointer"
                                         >
-                                            <td className="px-4 py-0.5">
-                                                <div className="font-bold text-slate-900 text-[13px] group-hover/row:text-indigo-600 transition-colors leading-tight mb-0.5 flex items-center group/link">
-                                                    {job.service?.name || 'Manual Project'}
-                                                </div>
-                                                <div className="text-[10px] text-slate-400 line-clamp-1 font-bold">{job.description}</div>
-                                            </td>
-                                            <td className="px-4 py-0.5">
-                                                <div className="flex items-center text-[11px] font-bold text-slate-600">
-                                                    <div className="w-5 h-5 bg-slate-100 rounded-lg flex items-center justify-center mr-2 group-hover/row:bg-indigo-600 group-hover/row:text-white transition-colors">
-                                                        <Building2 size={12} />
+                                            <td className="px-4 py-2">
+                                                <div className="flex items-center text-[13px] font-bold text-slate-600">
+                                                    <div className="w-6 h-6 bg-slate-100 rounded-lg flex items-center justify-center mr-3 group-hover/row:bg-indigo-600 group-hover/row:text-white transition-colors">
+                                                        <Building2 size={14} />
                                                     </div>
                                                     {job.vendor?.studio_name || 'Individual'}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-0.5">
-                                                <div className={`inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${job.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                                    job.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                                                        'bg-indigo-50 text-indigo-600 border-indigo-100'
+                                            <td className="px-4 py-2">
+                                                <div className="font-bold text-slate-900 text-base group-hover/row:text-indigo-600 transition-colors leading-tight">
+                                                    {job.service?.name || 'Manual Project'}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                <div className="text-[13px] text-slate-400 font-bold leading-relaxed max-w-[250px] line-clamp-1 italic">
+                                                    {job.description || 'No description provided'}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2 text-center">
+                                                <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-sm border ${job.status === 'COMPLETED' ? 'bg-emerald-500 text-white border-emerald-600' :
+                                                    job.status === 'PENDING' ? 'bg-amber-400 text-white border-amber-500' :
+                                                        'bg-indigo-600 text-white border-indigo-700'
                                                     }`}>
                                                     {job.status === 'IN_PROGRESS' ? 'IN-PROGRESS' : 
                                                      job.status === 'COMPLETED' ? 'COMPLETE' : 
                                                      job.status}
-                                                </div>
+                                                </span>
                                             </td>
-                                            <td className="px-4 py-0.5">
-                                                <div className="flex items-center text-[10px] font-bold text-slate-500 tracking-wider">
-                                                    <Calendar size={12} className="mr-1.5 text-indigo-400" />
+                                            <td className="px-4 py-2">
+                                                <div className="flex items-center text-[12px] text-slate-400 font-bold tracking-wider">
+                                                    <Calendar size={14} className="mr-2 text-indigo-300" />
                                                     {new Date(job.job_due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-0.5 w-[180px]">
-                                                <div className="flex justify-end pr-2" onClick={(e) => e.stopPropagation()}>
-                                                    <AestheticSelect
-                                                        options={[
-                                                            { id: 'PENDING', name: 'PENDING' },
-                                                            { id: 'IN_PROGRESS', name: 'IN-PROGRESS' },
-                                                            { id: 'COMPLETED', name: 'COMPLETE' }
-                                                        ]}
-                                                        value={job.status}
+                                            <td className="px-4 py-2">
+                                                <div className="flex items-center justify-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                                                    <button
+                                                        onClick={() => handleUpdateStatus(job.id, 'PENDING')}
                                                         disabled={actionLoading === job.id}
-                                                        onChange={(val) => handleUpdateStatus(job.id, val)}
-                                                    />
+                                                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all border shadow-sm ${job.status === 'PENDING' ? 'bg-[#F59E0B] text-white border-[#F59E0B]' : 'bg-white text-slate-500 border-slate-100 hover:text-[#F59E0B] hover:border-amber-200'}`}
+                                                        title="Mark as Pending"
+                                                    >
+                                                        <Clock size={16} strokeWidth={2.5} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleUpdateStatus(job.id, 'IN_PROGRESS')}
+                                                        disabled={actionLoading === job.id}
+                                                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all border shadow-sm ${job.status === 'IN_PROGRESS' ? 'bg-[#4F46E5] text-white border-[#4F46E5]' : 'bg-white text-slate-500 border-slate-100 hover:text-[#4F46E5] hover:border-indigo-200'}`}
+                                                        title="Mark as In-Progress"
+                                                    >
+                                                        <Zap size={16} strokeWidth={2.5} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleUpdateStatus(job.id, 'COMPLETED')}
+                                                        disabled={actionLoading === job.id}
+                                                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all border shadow-sm ${job.status === 'COMPLETED' ? 'bg-[#10B981] text-white border-[#10B981]' : 'bg-white text-slate-500 border-slate-100 hover:text-[#10B981] hover:border-emerald-200'}`}
+                                                        title="Mark as Completed"
+                                                    >
+                                                        <CheckCircle2 size={16} strokeWidth={2.5} />
+                                                    </button>
+                                                    <div className="w-[1px] h-5 bg-slate-100 mx-1" />
+                                                    <button
+                                                        onClick={() => router.push(`/dashboard/staff/my-jobs/view/${job.id}`)}
+                                                        className="w-9 h-9 flex items-center justify-center bg-white text-slate-500 hover:text-white hover:bg-slate-900 rounded-xl transition-all border border-slate-100 hover:border-slate-900 shadow-sm"
+                                                        title="View Details"
+                                                    >
+                                                        <Eye size={16} strokeWidth={2.5} />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -232,7 +268,7 @@ export default function MyJobsPage() {
                     </div>
 
                     {paginatedJobs.length > 0 && (
-                        <div className="p-6 border-t border-slate-50">
+                        <div className="p-4 border-t border-slate-50 bg-slate-50/20">
                             <Pagination
                                 currentPage={currentPage}
                                 totalPages={totalPages}

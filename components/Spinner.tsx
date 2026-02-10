@@ -7,8 +7,8 @@ interface SpinnerProps {
 
 export default function Spinner({ fullScreen = false, withSidebar = false }: SpinnerProps) {
     const containerClasses = fullScreen 
-        ? `fixed inset-0 bg-[#f8fafc] flex items-center justify-center z-[9999] ${withSidebar ? 'lg:pl-72' : ''}`
-        : `min-h-screen flex items-center justify-center ${withSidebar ? 'lg:pl-72' : ''}`;
+        ? `fixed inset-0 bg-[#f1f5f9] flex items-center justify-center z-[9999] ${withSidebar ? 'lg:pl-72' : ''}`
+        : `py-12 flex items-center justify-center w-full ${withSidebar ? 'lg:pl-72' : ''}`;
 
     return (
         <div className={containerClasses}>

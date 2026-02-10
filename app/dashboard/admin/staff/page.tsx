@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Edit2, Trash2, Search, Percent, Smartphone, Mail, Users, X, Save, ArrowLeft, Calendar, ChevronDown, Building2, AlertTriangle, ExternalLink } from 'lucide-react'
+import { Plus, Edit2, Trash2, Search, Percent, Smartphone, Mail, Users, X, Save, ArrowLeft, Calendar, ChevronDown, Building2, AlertTriangle, ExternalLink, CheckCircle, XCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { User, Service, StaffServiceConfig } from '@/types/database'
 import Pagination from '@/components/Pagination'
@@ -26,7 +26,13 @@ export default function StaffPage() {
     const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
     const [editingId, setEditingId] = useState<string | null>(null)
     const [submitting, setSubmitting] = useState(false)
+    const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
     const [services, setServices] = useState<Service[]>([])
+
+    const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+        setNotification({ message, type })
+        setTimeout(() => setNotification(null), 3500)
+    }
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -155,13 +161,13 @@ export default function StaffPage() {
             const mobileRegex = /^[0-9]{10}$/
 
             if (!emailRegex.test(formData.email)) {
-                alert('Please enter a valid email address.')
+                showNotification('Please enter a valid email address.', 'error')
                 setSubmitting(false)
                 return
             }
 
             if (!mobileRegex.test(formData.mobile)) {
-                alert('Please enter a valid 10-digit mobile number.')
+                showNotification('Please enter a valid 10-digit mobile number.', 'error')
                 setSubmitting(false)
                 return
             }
@@ -226,10 +232,11 @@ export default function StaffPage() {
             }
 
             setShowModal(false)
+            showNotification(modalMode === 'create' ? 'Staff member created successfully' : 'Staff member updated successfully')
             fetchStaff()
         } catch (error: any) {
             console.error('Error saving user:', error)
-            alert(error.message || 'Error occurred while saving user.')
+            showNotification(error.message || 'Error occurred while saving user.', 'error')
         } finally {
             setSubmitting(false)
         }
@@ -256,10 +263,11 @@ export default function StaffPage() {
 
             setShowDeleteModal(false)
             setMemberToDelete(null)
+            showNotification('Staff member deleted successfully')
             fetchStaff()
         } catch (error: any) {
             console.error('Error deleting staff:', error)
-            alert(error.message || 'Error deleting staff. Please try again.')
+            showNotification(error.message || 'Error deleting staff. Please try again.', 'error')
         } finally {
             setDeleteLoading(false)
         }
@@ -281,15 +289,11 @@ export default function StaffPage() {
         setCurrentPage(1)
     }, [searchTerm])
 
-    if (loading) {
-        return <Spinner withSidebar />
-    }
-
     return (
         <div className="min-h-screen bg-[#f1f5f9] text-slate-800 lg:ml-72">
             <div className="w-full px-2 py-4 lg:px-4 lg:py-8">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 animate-slide-up px-2">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 px-2">
                     <div className="flex items-center space-x-4">
                         <div className="w-12 h-12 bg-indigo-600 rounded-[1.25rem] shadow-lg shadow-indigo-100 flex items-center justify-center">
                             <Users size={20} className="text-white" />
@@ -301,7 +305,7 @@ export default function StaffPage() {
                 </div>
 
                 {/* Main Operations Card */}
-                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-xl overflow-hidden animate-slide-up [animation-delay:200ms]">
+                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-xl overflow-hidden">
                     
                     {/* Toolbar Inside Card */}
                     <div className="px-12 py-5 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -325,7 +329,12 @@ export default function StaffPage() {
                     </div>
 
                     {/* Table */}
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto relative">
+                        {loading && staff.length === 0 ? (
+                            <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center z-10">
+                                <Spinner />
+                            </div>
+                        ) : null}
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-100/80 border-b border-slate-200">
@@ -337,7 +346,7 @@ export default function StaffPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {paginatedStaff.length === 0 ? (
+                                {paginatedStaff.length === 0 && !loading ? (
                                     <tr>
                                         <td colSpan={5} className="py-20 text-center">
                                             <div className="inline-flex p-5 bg-slate-50 rounded-full mb-3">
@@ -617,6 +626,24 @@ export default function StaffPage() {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Notification Toast */}
+            {notification && (
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className={`flex items-center space-x-3 px-6 py-3 rounded-2xl shadow-2xl border ${
+                        notification.type === 'success' 
+                            ? 'bg-emerald-500 border-emerald-400 text-white' 
+                            : 'bg-rose-500 border-rose-400 text-white'
+                    }`}>
+                        {notification.type === 'success' ? (
+                            <CheckCircle size={18} className="text-white" />
+                        ) : (
+                            <XCircle size={18} className="text-white" />
+                        )}
+                        <p className="text-[11px] font-black uppercase tracking-widest">{notification.message}</p>
                     </div>
                 </div>
             )}

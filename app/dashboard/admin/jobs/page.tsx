@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Search, Calendar, Building2, Edit2, ClipboardList, Clock, Zap, CheckCircle2, ExternalLink } from 'lucide-react'
+import { Plus, Search, Calendar, Building2, Edit2, ClipboardList, Clock, Zap, CheckCircle2, ExternalLink, Trash2, CheckCircle, XCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Job, Service, Vendor, User as StaffUser } from '@/types/database'
 import { formatCurrency, getStatusColor, getStatusLabel } from '@/lib/utils'
@@ -17,6 +17,12 @@ export default function JobsPage() {
     const [searchTerm, setSearchTerm] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const ITEMS_PER_PAGE = 10
+    const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
+
+    const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+        setNotification({ message, type })
+        setTimeout(() => setNotification(null), 3000)
+    }
 
     useEffect(() => {
         fetchJobs()
@@ -63,13 +69,34 @@ export default function JobsPage() {
                 throw error;
             }
             
+            showNotification(`Job marked as ${newStatus.replace('_', ' ')}`)
+            
             // Local state update for immediate feedback
             setJobs(prevJobs => prevJobs.map(j => 
                 j.id === jobId ? { ...j, status: newStatus } : j
             ));
         } catch (error) {
             console.error('Error updating status:', error)
-            alert('Failed to update status. Please check console for details.');
+            showNotification('Failed to update status', 'error');
+        }
+    }
+
+    const handleDelete = async (jobId: string) => {
+        if (!confirm('Are you sure you want to delete this job? This action cannot be undone.')) return
+
+        try {
+            const { error } = await supabase
+                .from('jobs')
+                .delete()
+                .eq('id', jobId)
+
+            if (error) throw error
+
+            showNotification('Job deleted successfully')
+            setJobs(prevJobs => prevJobs.filter(j => j.id !== jobId))
+        } catch (error) {
+            console.error('Error deleting job:', error)
+            showNotification('Failed to delete job', 'error')
         }
     }
 
@@ -90,14 +117,10 @@ export default function JobsPage() {
         setCurrentPage(1)
     }, [searchTerm])
 
-    if (loading && jobs.length === 0) {
-        return <Spinner withSidebar />
-    }
-
     return (
         <div className="min-h-screen bg-[#f1f5f9] lg:ml-72">
             <div className="w-full px-2 py-4 lg:px-4 lg:py-8">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 animate-slide-up px-2">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 px-2">
                     <div className="flex items-center space-x-4">
                         <div className="w-12 h-12 bg-indigo-600 rounded-[1.25rem] shadow-lg shadow-indigo-100 flex items-center justify-center">
                             <ClipboardList size={20} className="text-white" />
@@ -108,7 +131,7 @@ export default function JobsPage() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-xl overflow-hidden animate-slide-up [animation-delay:200ms]">
+                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-xl overflow-hidden">
                     
                     {/* Toolbar Inside Card */}
                     <div className="px-6 py-5 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -131,7 +154,13 @@ export default function JobsPage() {
                         </button>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto relative">
+                        {loading && jobs.length === 0 ? (
+                            <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center z-10">
+                                <Spinner />
+                            </div>
+                        ) : null}
+
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-100/80 border-b border-slate-200">
@@ -146,7 +175,7 @@ export default function JobsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {paginatedJobs.length === 0 ? (
+                                {paginatedJobs.length === 0 && !loading ? (
                                     <tr>
                                         <td colSpan={8} className="py-20 text-center">
                                             <div className="inline-flex p-5 bg-slate-50 rounded-full mb-3">
@@ -232,6 +261,13 @@ export default function JobsPage() {
                                                     >
                                                         <Edit2 size={16} strokeWidth={2.5} />
                                                     </button>
+                                                    <button
+                                                        onClick={() => handleDelete(job.id)}
+                                                        className="w-9 h-9 flex items-center justify-center bg-white text-rose-500 hover:text-white hover:bg-rose-500 rounded-xl transition-all border border-slate-100 hover:border-rose-500 shadow-sm"
+                                                        title="Delete Job"
+                                                    >
+                                                        <Trash2 size={16} strokeWidth={2.5} />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -250,6 +286,24 @@ export default function JobsPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Notification Toast */}
+            {notification && (
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className={`flex items-center space-x-3 px-6 py-3 rounded-2xl shadow-2xl border ${
+                        notification.type === 'success' 
+                            ? 'bg-emerald-500 border-emerald-400 text-white' 
+                            : 'bg-rose-500 border-rose-400 text-white'
+                    }`}>
+                        {notification.type === 'success' ? (
+                            <CheckCircle size={18} className="text-white" />
+                        ) : (
+                            <XCircle size={18} className="text-white" />
+                        )}
+                        <p className="text-[11px] font-black uppercase tracking-widest">{notification.message}</p>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

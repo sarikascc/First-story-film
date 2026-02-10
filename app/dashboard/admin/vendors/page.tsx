@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Edit2, Trash2, Search, Building2, User, Smartphone, Mail, MapPin } from 'lucide-react'
+import { Plus, Edit2, Trash2, Search, Building2, User, Smartphone, Mail, MapPin, CheckCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Vendor } from '@/types/database'
 import Pagination from '@/components/Pagination'
@@ -17,6 +17,7 @@ export default function VendorsPage() {
     const ITEMS_PER_PAGE = 10
     const [showModal, setShowModal] = useState(false)
     const [editingVendor, setEditingVendor] = useState<Vendor | null>(null)
+    const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
 
     const [formData, setFormData] = useState({
         studio_name: '',
@@ -47,6 +48,11 @@ export default function VendorsPage() {
         }
     }
 
+    const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+        setNotification({ message, type })
+        setTimeout(() => setNotification(null), 3000)
+    }
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
@@ -57,13 +63,13 @@ export default function VendorsPage() {
             const mobileRegex = /^[0-9]{10}$/
 
             if (formData.email && !emailRegex.test(formData.email)) {
-                alert('Please enter a valid email address.')
+                showNotification('Please enter a valid email address.', 'error')
                 setLoading(false)
                 return
             }
 
             if (!mobileRegex.test(formData.mobile)) {
-                alert('Please enter a valid 10-digit mobile number.')
+                showNotification('Please enter a valid 10-digit mobile number.', 'error')
                 setLoading(false)
                 return
             }
@@ -74,8 +80,7 @@ export default function VendorsPage() {
                     .update(formData)
                     .eq('id', editingVendor.id)
                 if (error) throw error
-                // Success feedback for update
-                alert('Vendor updated successfully!')
+                showNotification('Vendor updated successfully!')
             } else {
                 // Use Admin API to bypass RLS for vendor creation
                 const { data: { session } } = await supabase.auth.getSession()
@@ -92,8 +97,7 @@ export default function VendorsPage() {
                     const errorData = await response.json()
                     throw new Error(errorData.error || 'Failed to create vendor')
                 }
-                // Success feedback for creation
-                alert('Vendor registered successfully!')
+                showNotification('Vendor registered successfully!')
             }
 
             setShowModal(false)
@@ -101,7 +105,7 @@ export default function VendorsPage() {
             fetchVendors()
         } catch (error: any) {
             console.error('Error saving vendor:', error)
-            alert(`Error: ${error.message || 'Something went wrong while saving.'}`)
+            showNotification(error.message || 'Something went wrong while saving.', 'error')
         } finally {
             setLoading(false)
         }
@@ -116,9 +120,11 @@ export default function VendorsPage() {
                 .delete()
                 .eq('id', id)
             if (error) throw error
+            showNotification('Vendor deleted successfully')
             fetchVendors()
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error deleting vendor:', error)
+            showNotification(error.message || 'Error deleting vendor', 'error')
         }
     }
 
@@ -157,15 +163,11 @@ export default function VendorsPage() {
         setCurrentPage(1)
     }, [searchTerm])
 
-    if (loading && vendors.length === 0) {
-        return <Spinner withSidebar />
-    }
-
     return (
         <div className="min-h-screen bg-[#f1f5f9] text-slate-800 lg:ml-72">
             <div className="w-full px-2 py-4 lg:px-4 lg:py-8">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 animate-slide-up px-2">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 px-2">
                     <div className="flex items-center space-x-4">
                         <div className="w-12 h-12 bg-indigo-600 rounded-[1.25rem] shadow-lg shadow-indigo-100 flex items-center justify-center">
                             <Building2 size={20} className="text-white" />
@@ -177,7 +179,7 @@ export default function VendorsPage() {
                 </div>
 
                 {/* Main Operations Card */}
-                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-xl overflow-hidden animate-slide-up [animation-delay:200ms]">
+                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-xl overflow-hidden">
                     
                     {/* Toolbar Inside Card */}
                     <div className="px-12 py-5 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -201,7 +203,12 @@ export default function VendorsPage() {
                     </div>
 
                     {/* Table */}
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto relative">
+                        {loading && vendors.length === 0 ? (
+                            <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center z-10">
+                                <Spinner />
+                            </div>
+                        ) : null}
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-100/80 border-b border-slate-200">
@@ -213,7 +220,7 @@ export default function VendorsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {paginatedVendors.length === 0 ? (
+                                {paginatedVendors.length === 0 && !loading ? (
                                     <tr>
                                         <td colSpan={4} className="py-20 text-center">
                                             <div className="inline-flex p-5 bg-slate-50 rounded-full mb-3">
@@ -379,6 +386,23 @@ export default function VendorsPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* Proper Notification Toast */}
+            {notification && (
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className={`flex items-center space-x-3 px-6 py-3 rounded-2xl shadow-2xl border ${
+                        notification.type === 'success' 
+                            ? 'bg-emerald-500 border-emerald-400 text-white' 
+                            : 'bg-rose-500 border-rose-400 text-white'
+                    }`}>
+                        {notification.type === 'success' ? (
+                            <CheckCircle size={18} className="text-white" />
+                        ) : (
+                            <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold text-white">!</div>
+                        )}
+                        <p className="text-[11px] font-black uppercase tracking-widest">{notification.message}</p>
                     </div>
                 </div>
             )}

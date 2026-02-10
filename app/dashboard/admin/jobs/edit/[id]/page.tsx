@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Save, Info, AlertCircle, Percent } from 'lucide-react'
+import { ArrowLeft, Save, Info, AlertCircle, Percent, CheckCircle, XCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Service, Vendor, User as StaffUser } from '@/types/database'
 import { formatCurrency, calculateCommission } from '@/lib/utils'
@@ -17,6 +17,12 @@ export default function EditJobPage() {
     const [services, setServices] = useState<Service[]>([])
     const [vendors, setVendors] = useState<Vendor[]>([])
     const [staffList, setStaffList] = useState<StaffUser[]>([])
+    const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
+
+    const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+        setNotification({ message, type })
+        setTimeout(() => setNotification(null), 3500)
+    }
 
     // Selection States
     const [selectedService, setSelectedService] = useState('')
@@ -48,7 +54,11 @@ export default function EditJobPage() {
                 .eq('id', jobId)
                 .single()
 
-            if (error) throw error
+            if (error) {
+                showNotification('Error fetching job details', 'error')
+                router.push('/dashboard/admin/jobs')
+                return
+            }
             if (data) {
                 const job = data as any
                 setFormData({
@@ -66,7 +76,7 @@ export default function EditJobPage() {
             }
         } catch (error) {
             console.error('Error fetching job:', error)
-            alert('Error fetching job details.')
+            showNotification('Error fetching job details.', 'error')
             router.push('/dashboard/admin/jobs')
         }
     }
@@ -163,10 +173,11 @@ export default function EditJobPage() {
                 .eq('id', jobId)
 
             if (error) throw error
-            router.push('/dashboard/admin/jobs')
+            showNotification('Job updated successfully!')
+            setTimeout(() => router.push('/dashboard/admin/jobs'), 1000)
         } catch (error: any) {
             console.error('Error updating job:', error)
-            alert(error.message || 'Error occurred while updating the job.')
+            showNotification(error.message || 'Error occurred while updating the job.', 'error')
         } finally {
             setLoading(false)
         }
@@ -319,6 +330,24 @@ export default function EditJobPage() {
                     </div>
                 </form>
             </div>
+
+            {/* Notification Toast */}
+            {notification && (
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className={`flex items-center space-x-3 px-6 py-3 rounded-2xl shadow-2xl border ${
+                        notification.type === 'success' 
+                            ? 'bg-emerald-500 border-emerald-400 text-white' 
+                            : 'bg-rose-500 border-rose-400 text-white'
+                    }`}>
+                        {notification.type === 'success' ? (
+                            <CheckCircle size={18} className="text-white" />
+                        ) : (
+                            <XCircle size={18} className="text-white" />
+                        )}
+                        <p className="text-[11px] font-black uppercase tracking-widest">{notification.message}</p>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

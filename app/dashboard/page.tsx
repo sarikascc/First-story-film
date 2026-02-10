@@ -117,18 +117,20 @@ export default function DashboardPage() {
         }
     }, [])
 
-    if (loading) {
-        return <Spinner withSidebar />
-    }
-    if (!session) return null
+    if (!session && !loading) return null
 
     const isAdmin = userRole === 'ADMIN'
 
     return (
-        <main className="lg:ml-72 min-h-screen p-6 lg:p-10">
+        <main className="lg:ml-72 min-h-screen p-6 lg:p-10 relative">
+            {loading && !session && (
+                <div className="absolute inset-0 bg-[#f1f5f9] z-50 flex items-center justify-center">
+                    <Spinner />
+                </div>
+            )}
             <div className="max-w-6xl mx-auto">
                 {/* Welcome Header */}
-                <div className="mb-8 animate-slide-up">
+                <div className="mb-8">
                     <div className="h-1 w-16 bg-indigo-600 rounded-full mb-4" />
                     <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 font-heading tracking-tight mb-2 leading-tight">
                         Welcome back, <span className="text-indigo-600">{userName || 'Studio Member'}!</span>
@@ -141,7 +143,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-slide-up [animation-delay:200ms]">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <div className="card-aesthetic p-6 overflow-hidden group hover:bg-slate-50 transition-colors">
                         <div className="flex items-center justify-between">
                             <div>
@@ -194,7 +196,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Quick Actions Center */}
-                <div className="card-aesthetic p-10 animate-slide-up [animation-delay:400ms]">
+                <div className="card-aesthetic p-10">
                     <div className="flex items-center space-x-3 mb-8">
                         <TrendingUp className="text-indigo-600" size={24} />
                         <h3 className="text-2xl font-bold font-heading text-slate-900 uppercase tracking-tight">
