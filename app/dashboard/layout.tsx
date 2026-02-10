@@ -245,9 +245,9 @@ export default function DashboardLayout({
             {sidebarOpen && (
                 <div
                     className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-30 lg:hidden"
-                    onClick={() => setSidebarOpen(false)}
-                />
+                    onClick={() => setSidebarOpen(false)} />
             )}
         </div>
     )
 }
+

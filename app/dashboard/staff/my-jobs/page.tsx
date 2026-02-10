@@ -9,9 +9,10 @@ import {
   Building2, 
   Layout, 
   Zap, 
-  Eye, 
   X, 
   FileText, 
+  MapPin,
+  ExternalLink,
   ClipboardList 
 } from 'lucide-react'
 import { supabase } from '../../../../lib/supabase'
@@ -23,6 +24,7 @@ export default function MyJobsPage() {
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
+    const [totalCount, setTotalCount] = useState(0)
     const ITEMS_PER_PAGE = 10
     const [currentUser, setCurrentUser] = useState<any>(null)
 
@@ -40,7 +42,7 @@ export default function MyJobsPage() {
                 const { data: { user } } = await supabase.auth.getUser()
                 if (user) {
                     setCurrentUser(user)
-                    await fetchMyJobs(user.id)
+                    // Initial load handled by the other useEffect listening to currentUser/currentPage/searchTerm
                 } else {
                     setLoading(false)
                 }
@@ -52,32 +54,44 @@ export default function MyJobsPage() {
         init()
     }, [])
 
+    useEffect(() => {
+        if (currentUser) {
+            fetchMyJobs(currentUser.id)
+        }
+    }, [currentUser, currentPage, searchTerm])
+
     const fetchMyJobs = async (userId: string) => {
         setLoading(true)
         console.log('MyJobs: Fetching jobs for user ID:', userId)
 
+        const start = (currentPage - 1) * ITEMS_PER_PAGE
+        const end = start + ITEMS_PER_PAGE - 1
+
         try {
             // Fetch jobs
-            const { data, error, count } = await (supabase.from('jobs') as any)
+            let query = (supabase.from('jobs') as any)
                 .select(`
                   *,
                   service:services(name),
                   vendor:vendors(studio_name)
                 `, { count: 'exact' })
                 .eq('staff_id', userId)
+
+            if (searchTerm) {
+                query = query.ilike('description', `%${searchTerm}%`)
+            }
+
+            const { data, error, count } = await query
                 .order('created_at', { ascending: false })
+                .range(start, end)
 
             if (error) {
                 console.error('MyJobs: Supabase Error:', error.message, error.code)
                 throw error
             }
 
-            console.log('MyJobs: Query successful. Jobs found:', data?.length, 'Count:', count)
-            if (data && data.length > 0) {
-                console.log('MyJobs: First job sample:', data[0])
-            }
-            
             setJobs(data || [])
+            setTotalCount(count || 0)
         } catch (error: any) {
             console.error('Error fetching jobs:', error.message || error)
         } finally {
@@ -108,17 +122,13 @@ export default function MyJobsPage() {
 
             if (error) throw error
 
-            // Local state update for immediate feedback
             setJobs(prevJobs => prevJobs.map(j => 
                 j.id === jobId ? { ...j, ...updatePayload } : j
             ));
 
-            // Also update selectedJob if it's the one being modified in the modal
             if (selectedJob && selectedJob.id === jobId) {
                 setSelectedJob((prev: any) => ({ ...prev, ...updatePayload }));
             }
-
-            // fetchMyJobs(currentUser?.id) // Optional: refetch from server to be sure
         } catch (error: any) {
             console.error('Error updating status:', error.message || error)
         } finally {
@@ -136,19 +146,12 @@ export default function MyJobsPage() {
         setSelectedJob(null)
     }
 
-    const filteredJobs = jobs.filter(job => {
-        if (!searchTerm) return true;
-        const search = searchTerm.toLowerCase();
-        const serviceName = job.service?.name?.toLowerCase() || '';
-        const description = job.description?.toLowerCase() || '';
-        return serviceName.includes(search) || description.includes(search);
-    })
+    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
+    const paginatedJobs = jobs
 
-    const totalPages = Math.ceil(filteredJobs.length / ITEMS_PER_PAGE)
-    const paginatedJobs = filteredJobs.slice(
-        (currentPage - 1) * ITEMS_PER_PAGE,
-        currentPage * ITEMS_PER_PAGE
-    )
+    useEffect(() => {
+        if (currentPage !== 1) setCurrentPage(1)
+    }, [searchTerm])
 
     return (
         <div className="min-h-screen bg-[#f1f5f9] lg:ml-72 relative">
@@ -166,9 +169,9 @@ export default function MyJobsPage() {
                         <div>
                             <h1 className="text-2xl font-black text-slate-900 font-heading tracking-tight leading-tight uppercase flex items-center gap-4">
                                 My Jobs
-                                {jobs.length > 0 && (
+                                {totalCount > 0 && (
                                     <span className="text-[9px] bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full font-black tracking-widest">
-                                        {jobs.length} ACTIVE
+                                        {totalCount} ACTIVE
                                     </span>
                                 )}
                             </h1>
@@ -187,15 +190,14 @@ export default function MyJobsPage() {
                                 placeholder="Search by studio or job description..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 h-9 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-500 shadow-inner"
-                            />
+                                className="w-full pl-10 pr-4 h-9 bg-slate-100 border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-500 shadow-inner" />
                         </div>
                     </div>
 
                     <div className="overflow-x-auto relative">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-slate-100/80 border-b border-slate-200">
+                                <tr className="bg-slate-100 border-b border-slate-200">
                                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Studio</th>
                                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Job Type</th>
                                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Work Description</th>
@@ -220,7 +222,7 @@ export default function MyJobsPage() {
                                         <tr 
                                             key={job.id} 
                                             onClick={() => openViewModal(job)}
-                                            className="hover:bg-indigo-50/10 transition-colors group/row cursor-pointer"
+                                            className="hover:bg-indigo-50 transition-colors group/row cursor-pointer"
                                         >
                                             <td className="px-4 py-1.5">
                                                 <div className="flex items-center text-[12px] font-bold text-slate-600">
@@ -282,14 +284,6 @@ export default function MyJobsPage() {
                                                     >
                                                         <CheckCircle2 size={14} strokeWidth={2.5} />
                                                     </button>
-                                                    <div className="w-[1px] h-4 bg-slate-100 mx-1" />
-                                                    <button
-                                                        onClick={() => openViewModal(job)}
-                                                        className="w-8 h-8 flex items-center justify-center bg-white text-slate-500 hover:text-white hover:bg-slate-900 rounded-lg transition-all border border-slate-100 hover:border-slate-900 shadow-sm"
-                                                        title="View Details"
-                                                    >
-                                                        <Eye size={14} strokeWidth={2.5} />
-                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -300,12 +294,11 @@ export default function MyJobsPage() {
                     </div>
 
                     {paginatedJobs.length > 0 && (
-                        <div className="p-4 border-t border-slate-50 bg-slate-50/20">
+                        <div className="p-4 border-t border-slate-50 bg-slate-50">
                             <Pagination
                                 currentPage={currentPage}
                                 totalPages={totalPages}
-                                onPageChange={setCurrentPage}
-                            />
+                                onPageChange={setCurrentPage} />
                         </div>
                     )}
                 </div>
@@ -314,7 +307,7 @@ export default function MyJobsPage() {
             {/* View Modal */}
             {showViewModal && selectedJob && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={closeModal} />
+                    <div className="absolute inset-0 bg-slate-900 backdrop-blur-sm" onClick={closeModal} />
                     <div className="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
                         {/* Modal Header */}
                         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white relative z-10">
@@ -324,7 +317,6 @@ export default function MyJobsPage() {
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-none mb-1">Production Details</h2>
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Job ID: {selectedJob.id.slice(0, 8)}</p>
                                 </div>
                             </div>
                             <button onClick={closeModal} className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-100 rounded-xl transition-all shadow-sm">
@@ -337,55 +329,83 @@ export default function MyJobsPage() {
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                                 {/* Left Side (Main Content) */}
                                 <div className="lg:col-span-8 space-y-8">
-                                    <section>
-                                        <div className="flex items-center space-x-3 mb-6">
-                                            <div className="w-1.5 h-6 bg-indigo-600 rounded-full" />
-                                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Production Brief</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="space-y-4">
+                                            <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest border-l-4 border-indigo-500 pl-4">Contact Details</h3>
+                                            <div className="space-y-3">
+                                                <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-2xl group transition-all hover:bg-slate-100 border border-slate-100">
+                                                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors shadow-sm">
+                                                        <Building2 size={18} />
+                                                    </div>
+                                                    <div className="flex flex-col overflow-hidden">
+                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Studio Contact</span>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-bold text-slate-900 truncate tracking-tight">{selectedJob.vendor?.studio_name || "Individual Client"}</span>
+                                                            <span className="text-[10px] text-slate-500 font-bold">Partner Studio</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center space-x-4 p-4 bg-rose-50 rounded-2xl border border-rose-100 group transition-all hover:bg-rose-50">
+                                                    <div className="w-10 h-10 rounded-xl bg-white border border-rose-100 flex items-center justify-center text-rose-500 shadow-sm">
+                                                        <Calendar size={18} />
+                                                    </div>
+                                                    <div className="flex flex-col overflow-hidden">
+                                                        <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Submission Deadline</span>
+                                                        <span className="text-sm font-bold text-rose-600 truncate tracking-tight">
+                                                            {new Date(selectedJob.job_due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="bg-slate-50/50 rounded-[2rem] border border-slate-100 p-7 relative overflow-hidden group">
-                                            <FileText className="absolute top-6 right-6 text-slate-200/50 group-hover:text-indigo-500/10 transition-colors" size={120} />
+
+                                        <div className="space-y-4">
+                                            <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest border-l-4 border-emerald-500 pl-4">Location</h3>
+                                            <div className="space-y-3">
+                                                <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-2xl group transition-all hover:bg-slate-100 border border-slate-100">
+                                                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 transition-colors shadow-sm">
+                                                        <MapPin size={18} />
+                                                    </div>
+                                                    <div className="flex flex-col overflow-hidden">
+                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Source location</span>
+                                                        <span className="text-sm font-bold text-slate-900 truncate tracking-tight">{selectedJob.data_location || 'Pending'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center space-x-4 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 group transition-all hover:bg-indigo-50">
+                                                    <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 flex items-center justify-center text-indigo-400 shadow-sm">
+                                                        <ExternalLink size={18} />
+                                                    </div>
+                                                    <div className="flex flex-col overflow-hidden">
+                                                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Output location</span>
+                                                        <span className="text-sm font-bold text-indigo-900 truncate tracking-tight">{selectedJob.final_location || 'Pending'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <section>
+                                        <div className="flex items-center space-x-3 mb-4">
+                                            <div className="w-1.5 h-6 bg-indigo-600 rounded-full" />
+                                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Work Description</h3>
+                                        </div>
+                                        <div className="bg-slate-50 rounded-[2rem] border border-slate-100 p-7 relative overflow-hidden group">
+                                            <FileText className="absolute top-6 right-6 text-slate-200 opacity-20 transition-colors" size={120} />
                                             <div className="relative z-10">
-                                                <h4 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-3">Service Name</h4>
-                                                <p className="text-3xl font-black text-slate-900 mb-6 leading-tight tracking-tight uppercase">{selectedJob.service?.name}</p>
-                                                
-                                                <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] mb-3">Work Description</h4>
-                                                <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-slate-100 shadow-sm">
-                                                    <p className="text-slate-700 font-bold leading-relaxed italic">
-                                                        "{selectedJob.description || 'No specific instructions provided.'}"
+                                                <div className="bg-white backdrop-blur-sm p-6 rounded-2xl border border-slate-100 shadow-sm">
+                                                    <p className="text-slate-700 font-bold leading-relaxed italic text-lg">
+                                                        &quot;{selectedJob.description || 'No specific instructions provided.'}&quot;
                                                     </p>
                                                 </div>
                                             </div>
                                         </div>
                                     </section>
-
-                                    <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="bg-white rounded-[2rem] border border-slate-100 p-7 shadow-sm hover:shadow-md transition-all group">
-                                            <div className="flex items-center space-x-4 mb-4">
-                                                <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-sm">
-                                                    <Building2 size={20} />
-                                                </div>
-                                                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Partner Studio (Vendor)</h4>
-                                            </div>
-                                            <p className="text-xl font-black text-slate-900 tracking-tight uppercase">{selectedJob.vendor?.studio_name || 'Individual Client'}</p>
-                                        </div>
-
-                                        <div className="bg-white rounded-[2rem] border border-slate-100 p-7 shadow-sm hover:shadow-md transition-all group">
-                                            <div className="flex items-center space-x-4 mb-4">
-                                                <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center border border-rose-100 group-hover:bg-rose-500 group-hover:text-white transition-all shadow-sm">
-                                                    <Calendar size={20} />
-                                                </div>
-                                                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Submission Deadline</h4>
-                                            </div>
-                                            <p className="text-xl font-black text-rose-600 tracking-tight font-mono uppercase">
-                                                {new Date(selectedJob.job_due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                            </p>
-                                        </div>
-                                    </section>
                                 </div>
 
-                                {/* Right Side (Technical & Status) */}
+                                {/* Right Side (Financial & Status) */}
                                 <div className="lg:col-span-4 space-y-6">
-                                    <div className="bg-slate-50/80 rounded-[2rem] border border-slate-100 p-7 space-y-3">
+                                    <div className="bg-slate-50 rounded-[2rem] border border-slate-100 p-7 space-y-3">
                                         <div>
                                             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Update Status</h3>
                                             <div className="space-y-2">
@@ -415,63 +435,13 @@ export default function MyJobsPage() {
                                                 </button>
                                             </div>
                                         </div>
-
-                                        <div className="pt-3 border-t border-slate-200/60 space-y-4">
-                                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Technical Specs</h3>
-                                            <div className="space-y-3">
-                                                <div className="flex flex-col group/tech">
-                                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1 group-hover/tech:text-indigo-600 transition-colors">Raw Source Path</span>
-                                                    <div className="bg-white p-3 rounded-xl border border-slate-100 text-[11px] font-bold text-slate-900 group-hover/tech:border-indigo-100 transition-all truncate shadow-sm">
-                                                        {selectedJob.data_location || 'Not Specified'}
-                                                    </div>
-                                                </div>
-                                                <div className="flex flex-col group/tech">
-                                                    <span className="text-[9px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-1 group-hover/tech:text-indigo-700 transition-colors">Final Delivery Target</span>
-                                                    <div className="bg-indigo-50/30 p-3 rounded-xl border border-indigo-100/30 text-[11px] font-bold text-indigo-900 group-hover/tech:border-indigo-200 transition-all truncate shadow-sm">
-                                                        {selectedJob.final_location || 'To be updated'}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-6 bg-slate-900 rounded-[2rem] text-white shadow-xl shadow-slate-200">
-                                        <div className="flex items-center space-x-3 mb-4">
-                                            <Clock size={16} className="text-slate-500" />
-                                            <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500">Assignment Timeline</h3>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <div className="flex justify-between items-center text-[10px]">
-                                                <span className="font-bold text-slate-500">ASSIGNED</span>
-                                                <span className="font-black text-slate-300">{new Date(selectedJob.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                                            </div>
-                                            {selectedJob.started_at && (
-                                                <div className="flex justify-between items-center text-[10px]">
-                                                    <span className="font-bold text-indigo-400 uppercase tracking-widest">STARTED</span>
-                                                    <span className="font-black text-indigo-200">{new Date(selectedJob.started_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
-                                                </div>
-                                            )}
-                                            {selectedJob.completed_at && (
-                                                <div className="flex justify-between items-center text-[10px]">
-                                                    <span className="font-bold text-emerald-400 uppercase tracking-widest">FINISHED</span>
-                                                    <span className="font-black text-emerald-200">{new Date(selectedJob.completed_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
-                                                </div>
-                                            )}
+                                        <div className="pt-3 border-t border-slate-200">
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Service Context</p>
+                                            <p className="text-xl font-black text-slate-900 tracking-tight uppercase">{selectedJob.service?.name}</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Reference No: FSF-PROD-{selectedJob.id.slice(0, 4)}</span>
-                            <button 
-                                onClick={closeModal}
-                                className="px-8 py-3 bg-slate-900 hover:bg-black text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all shadow-lg shadow-slate-200"
-                            >
-                                Close & Continue
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -479,3 +449,7 @@ export default function MyJobsPage() {
         </div>
     )
 }
+
+
+
+

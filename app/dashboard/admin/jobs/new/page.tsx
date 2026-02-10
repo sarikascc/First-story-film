@@ -180,8 +180,7 @@ export default function NewJobPage() {
                                         options={vendors.map(v => ({ id: v.id, name: v.studio_name }))}
                                         value={selectedVendor}
                                         onChange={setSelectedVendor}
-                                        placeholder="Select Vendor..."
-                                    />
+                                        placeholder="Select Vendor..." />
                                     <AestheticSelect
                                         label="Service / Job Type"
                                         heightClass="h-11"
@@ -189,8 +188,7 @@ export default function NewJobPage() {
                                         options={services.map(s => ({ id: s.id, name: s.name }))}
                                         value={selectedService}
                                         onChange={setSelectedService}
-                                        placeholder="Select Service..."
-                                    />
+                                        placeholder="Select Service..." />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-end">
@@ -202,8 +200,7 @@ export default function NewJobPage() {
                                         options={filteredStaffList.map(s => ({ id: s.id, name: s.name }))}
                                         value={selectedStaff}
                                         onChange={setSelectedStaff}
-                                        placeholder={selectedService ? 'Select Assigned User...' : 'Choose Service First'}
-                                    />
+                                        placeholder={selectedService ? 'Select Assigned User...' : 'Choose Service First'} />
 
                                     <div>
                                         <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block ml-1">Job Due Date <span className="text-rose-500">*</span></label>
@@ -212,8 +209,7 @@ export default function NewJobPage() {
                                             className="w-full h-8 bg-white border-2 border-slate-100 rounded-full px-4 text-[10px] font-black uppercase tracking-widest text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-50 transition-all duration-300"
                                             value={formData.job_due_date}
                                             onChange={e => setFormData({ ...formData, job_due_date: e.target.value })}
-                                            required
-                                        />
+                                            required />
                                     </div>
 
                                     <AestheticSelect
@@ -225,8 +221,7 @@ export default function NewJobPage() {
                                             { id: 'COMPLETED', name: 'COMPLETE' }
                                         ]}
                                         value={formData.status}
-                                        onChange={(val) => setFormData({ ...formData, status: val })}
-                                    />
+                                        onChange={(val) => setFormData({ ...formData, status: val })} />
                                 </div>
 
                                 <div>
@@ -236,8 +231,7 @@ export default function NewJobPage() {
                                         placeholder="Provide clear instructions for the staff..."
                                         value={formData.description}
                                         onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                        required
-                                    />
+                                        required />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -248,8 +242,7 @@ export default function NewJobPage() {
                                             className="input-aesthetic h-12 px-4 text-sm"
                                             placeholder="Source folder path..."
                                             value={formData.data_location}
-                                            onChange={e => setFormData({ ...formData, data_location: e.target.value })}
-                                        />
+                                            onChange={e => setFormData({ ...formData, data_location: e.target.value })} />
                                     </div>
 
                                     <div>
@@ -259,8 +252,7 @@ export default function NewJobPage() {
                                             className="input-aesthetic h-12 px-4 text-sm"
                                             placeholder="Final destination path..."
                                             value={formData.final_location}
-                                            onChange={e => setFormData({ ...formData, final_location: e.target.value })}
-                                        />
+                                            onChange={e => setFormData({ ...formData, final_location: e.target.value })} />
                                     </div>
                                 </div>
 
@@ -277,8 +269,7 @@ export default function NewJobPage() {
                                                 onFocus={(e) => e.target.select()}
                                                 onChange={e => setFormData({ ...formData, amount: Number(e.target.value) })}
                                                 required
-                                                min="0"
-                                            />
+                                                min="0" />
                                         </div>
                                     </div>
 
@@ -317,3 +308,4 @@ export default function NewJobPage() {
         </div>
     )
 }
+

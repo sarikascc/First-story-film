@@ -145,8 +145,7 @@ export default function NewUserPage() {
                                     placeholder="Enter full name"
                                     value={formData.name}
                                     onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    required
-                                />
+                                    required />
                             </div>
                             <div>
                                 <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Mobile Number</label>
@@ -156,8 +155,7 @@ export default function NewUserPage() {
                                     placeholder="+91 00000 00000"
                                     value={formData.mobile}
                                     onChange={e => setFormData({ ...formData, mobile: e.target.value })}
-                                    required
-                                />
+                                    required />
                             </div>
                             <div>
                                 <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Email Address</label>
@@ -167,8 +165,7 @@ export default function NewUserPage() {
                                     placeholder="name@firststory.com"
                                     value={formData.email}
                                     onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                    required
-                                />
+                                    required />
                             </div>
                             <div>
                                 <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Initial Password</label>
@@ -178,8 +175,7 @@ export default function NewUserPage() {
                                     placeholder="Set temporary password"
                                     value={formData.password}
                                     onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                    required
-                                />
+                                    required />
                             </div>
                             <div>
                                 <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Role</label>
@@ -271,8 +267,7 @@ export default function NewUserPage() {
                                                     onChange={e => updateCommission(index, 'percentage', e.target.value)}
                                                     required
                                                     min="0"
-                                                    max="100"
-                                                />
+                                                    max="100" />
                                                 <Percent size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500" />
                                             </div>
                                         </div>
@@ -330,3 +325,4 @@ export default function NewUserPage() {
         </div>
     )
 }
+

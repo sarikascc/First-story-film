@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Edit2, Trash2, Search, Building2, User, Smartphone, Mail, MapPin, CheckCircle } from 'lucide-react'
+import { Plus, Edit2, Trash2, Search, Building2, User, Smartphone, Mail, MapPin, CheckCircle, Eye } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Vendor } from '@/types/database'
 import Pagination from '@/components/Pagination'
@@ -14,6 +14,7 @@ export default function VendorsPage() {
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
+    const [totalCount, setTotalCount] = useState(0)
     const ITEMS_PER_PAGE = 10
     const [showModal, setShowModal] = useState(false)
     const [editingVendor, setEditingVendor] = useState<Vendor | null>(null)
@@ -30,17 +31,28 @@ export default function VendorsPage() {
 
     useEffect(() => {
         fetchVendors()
-    }, [])
+    }, [currentPage, searchTerm])
 
     const fetchVendors = async () => {
         try {
-            const { data, error } = await (supabase
-                .from('vendors') as any)
-                .select('*')
+            setLoading(true)
+            const start = (currentPage - 1) * ITEMS_PER_PAGE
+            const end = start + ITEMS_PER_PAGE - 1
+
+            let query = (supabase.from('vendors') as any)
+                .select('*', { count: 'exact' })
+
+            if (searchTerm) {
+                query = query.or(`studio_name.ilike.%${searchTerm}%,contact_person.ilike.%${searchTerm}%`)
+            }
+
+            const { data, error, count } = await query
                 .order('studio_name')
+                .range(start, end)
 
             if (error) throw error
             setVendors(data || [])
+            setTotalCount(count || 0)
         } catch (error) {
             console.error('Error fetching vendors:', error)
         } finally {
@@ -146,21 +158,11 @@ export default function VendorsPage() {
         setFormData({ studio_name: '', contact_person: '', mobile: '', email: '', location: '', notes: '' })
     }
 
-    const filteredVendors = vendors.filter(v =>
-        v.studio_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.contact_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.mobile.includes(searchTerm) ||
-        (v.email && v.email.toLowerCase().includes(searchTerm.toLowerCase()))
-    )
-
-    const totalPages = Math.ceil(filteredVendors.length / ITEMS_PER_PAGE)
-    const paginatedVendors = filteredVendors.slice(
-        (currentPage - 1) * ITEMS_PER_PAGE,
-        currentPage * ITEMS_PER_PAGE
-    )
+    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
+    const paginatedVendors = vendors
 
     useEffect(() => {
-        setCurrentPage(1)
+        if (currentPage !== 1) setCurrentPage(1)
     }, [searchTerm])
 
     return (
@@ -190,8 +192,7 @@ export default function VendorsPage() {
                                 placeholder="Search by studio or contact name..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 h-9 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-500 shadow-inner"
-                            />
+                                className="w-full pl-10 pr-4 h-9 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-500 shadow-inner" />
                         </div>
                         <button 
                             onClick={() => { resetForm(); setShowModal(true); }} 
@@ -231,7 +232,11 @@ export default function VendorsPage() {
                                     </tr>
                                 ) : (
                                     paginatedVendors.map((vendor) => (
-                                        <tr key={vendor.id} className="hover:bg-slate-50/50 transition-colors group/row">
+                                        <tr 
+                                            key={vendor.id} 
+                                            className="hover:bg-slate-50/50 transition-colors group/row cursor-pointer"
+                                            onClick={() => router.push(`/dashboard/admin/vendors/view/${vendor.id}`)}
+                                        >
                                             <td className="px-6 py-1.5">
                                                 <div className="text-[14px] font-bold text-slate-900 group-hover/row:text-indigo-600 transition-colors flex items-center">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-200 mr-3 opacity-0 group-hover/row:opacity-100 transition-all scale-0 group-hover/row:scale-100" />
@@ -264,7 +269,14 @@ export default function VendorsPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-1.5">
-                                                <div className="flex items-center justify-end space-x-1.5">
+                                                <div className="flex items-center justify-end space-x-1.5" onClick={(e) => e.stopPropagation()}>
+                                                    <button
+                                                        onClick={() => router.push(`/dashboard/admin/vendors/view/${vendor.id}`)}
+                                                        className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
+                                                        title="View Vendor Details"
+                                                    >
+                                                        <Eye size={13} />
+                                                    </button>
                                                     <button
                                                         onClick={() => openEditModal(vendor)}
                                                         className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
@@ -294,8 +306,7 @@ export default function VendorsPage() {
                         <Pagination
                             currentPage={currentPage}
                             totalPages={totalPages}
-                            onPageChange={setCurrentPage}
-                        />
+                            onPageChange={setCurrentPage} />
                     </div>
                 </div>
             </div>
@@ -317,8 +328,7 @@ export default function VendorsPage() {
                                     className="input-aesthetic h-11 px-4 text-sm"
                                     value={formData.studio_name}
                                     onChange={e => setFormData({ ...formData, studio_name: e.target.value })}
-                                    placeholder="e.g. Dream Wedding Films"
-                                />
+                                    placeholder="e.g. Dream Wedding Films" />
                             </div>
                             <div>
                                 <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Contact Person</label>
@@ -328,8 +338,7 @@ export default function VendorsPage() {
                                     className="input-aesthetic h-11 px-4 text-sm"
                                     value={formData.contact_person}
                                     onChange={e => setFormData({ ...formData, contact_person: e.target.value })}
-                                    placeholder="Full Name"
-                                />
+                                    placeholder="Full Name" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -345,8 +354,7 @@ export default function VendorsPage() {
                                             const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10)
                                             setFormData({ ...formData, mobile: val })
                                         }}
-                                        placeholder="10-digit number"
-                                    />
+                                        placeholder="10-digit number" />
                                 </div>
                                 <div>
                                     <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Email Address</label>
@@ -355,8 +363,7 @@ export default function VendorsPage() {
                                         className="input-aesthetic h-11 px-4 text-sm"
                                         value={formData.email}
                                         onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                        placeholder="john@studio.com"
-                                    />
+                                        placeholder="john@studio.com" />
                                 </div>
                             </div>
                             <div>
@@ -366,8 +373,7 @@ export default function VendorsPage() {
                                     className="input-aesthetic h-11 px-4 text-sm"
                                     value={formData.location}
                                     onChange={e => setFormData({ ...formData, location: e.target.value })}
-                                    placeholder="e.g. Mumbai, Maharashtra"
-                                />
+                                    placeholder="e.g. Mumbai, Maharashtra" />
                             </div>
                             <div>
                                 <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Notes / Description (Optional)</label>
@@ -375,8 +381,7 @@ export default function VendorsPage() {
                                     className="input-aesthetic min-h-[60px] p-4 text-sm resize-none"
                                     value={formData.notes}
                                     onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                                    placeholder="Any additional details..."
-                                />
+                                    placeholder="Any additional details..." />
                             </div>
                             <div className="flex space-x-3 pt-4 border-t border-slate-50">
                                 <button type="submit" className="flex-1 h-11 bg-indigo-600 hover:bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-indigo-100 transition-all duration-300">
@@ -410,3 +415,4 @@ export default function VendorsPage() {
         </div>
     )
 }
+

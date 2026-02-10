@@ -142,8 +142,7 @@ export default function ServicesPage() {
                                 placeholder="Search by service name..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 h-9 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-500 shadow-inner"
-                            />
+                                className="w-full pl-10 pr-4 h-9 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-500 shadow-inner" />
                         </div>
                         <button 
                             onClick={openCreateModal} 
@@ -225,8 +224,7 @@ export default function ServicesPage() {
                         <Pagination
                             currentPage={currentPage}
                             totalPages={totalPages}
-                            onPageChange={setCurrentPage}
-                        />
+                            onPageChange={setCurrentPage} />
                     </div>
                 </div>
             </div>
@@ -250,8 +248,7 @@ export default function ServicesPage() {
                                     className="input-aesthetic h-11 px-4 text-sm"
                                     placeholder="e.g., Wedding Highlight"
                                     required
-                                    autoFocus
-                                />
+                                    autoFocus />
                             </div>
                             <div className="flex items-center gap-3 pt-4 border-t border-slate-50">
                                 <button type="submit" className="flex-1 h-11 bg-indigo-600 hover:bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-indigo-100 transition-all duration-300">
@@ -290,3 +287,4 @@ export default function ServicesPage() {
         </div>
     )
 }
+

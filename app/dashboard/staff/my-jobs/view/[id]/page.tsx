@@ -172,7 +172,7 @@ export default function StaffJobDetailPage({ params }: { params: Promise<{ id: s
                                             <MapPin size={18} />
                                         </div>
                                         <div className="flex flex-col overflow-hidden">
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Source Location</span>
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Source location</span>
                                             <span className="text-xs font-bold text-slate-900 truncate">{job.data_location || "Not specified"}</span>
                                         </div>
                                     </div>
@@ -181,7 +181,7 @@ export default function StaffJobDetailPage({ params }: { params: Promise<{ id: s
                                             <ExternalLink size={18} />
                                         </div>
                                         <div className="flex flex-col overflow-hidden">
-                                            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">Output Destination</span>
+                                            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">Output location</span>
                                             <span className="text-xs font-bold text-indigo-900 truncate">{job.final_location || "Pending upload..."}</span>
                                         </div>
                                     </div>

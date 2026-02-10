@@ -218,21 +218,17 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                                             </td>
                                         </tr>
                                     ) : (
-                                        jobs.map((job) => (
+                                        jobs.map((job: any) => (
                                             <tr key={job.id} className="hover:bg-slate-50/50 transition-colors group/row">
                                                 <td className="px-8 py-3">
                                                     <div className="flex flex-col">
                                                         <span className="text-[14px] font-bold text-slate-900 leading-none">{job.services?.name}</span>
-                                                        <div className="flex items-center text-[11px] text-slate-500 font-bold mt-1.5 uppercase tracking-tight">
-                                                            <Building2 size={12} className="mr-1 text-slate-500" />
-                                                            {job.vendors?.studio_name}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-8 py-3">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[14px] font-bold text-slate-900 leading-none">{job.services?.name}</span>
-                                                        <div className="flex items-center text-[11px] text-slate-500 font-bold mt-1.5 uppercase tracking-tight">
+                                                        <div 
+                                                            className="flex items-center text-[11px] text-slate-500 font-bold mt-1.5 uppercase tracking-tight hover:text-indigo-600 cursor-pointer w-fit"
+                                                            onClick={() => {
+                                                                if (job.vendor_id) router.push(`/dashboard/admin/vendors/view/${job.vendor_id}`);
+                                                            }}
+                                                        >
                                                             <Building2 size={12} className="mr-1 text-slate-500" />
                                                             {job.vendors?.studio_name}
                                                         </div>

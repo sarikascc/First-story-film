@@ -232,7 +232,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                                                 <MapPin size={18} />
                                             </div>
                                             <div className="flex flex-col overflow-hidden">
-                                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Source Location</span>
+                                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Source location</span>
                                                 <span className="text-sm font-bold text-slate-900 truncate">{job.data_location || "Pending"}</span>
                                             </div>
                                         </div>
@@ -242,7 +242,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                                                 <ExternalLink size={18} />
                                             </div>
                                             <div className="flex flex-col overflow-hidden">
-                                                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Output Destination</span>
+                                                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Output location</span>
                                                 <span className="text-sm font-bold text-indigo-900 truncate">{job.final_location || "Pending"}</span>
                                             </div>
                                         </div>

@@ -18,6 +18,7 @@ export default function JobsPage() {
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
+    const [totalCount, setTotalCount] = useState(0)
     const ITEMS_PER_PAGE = 10
     const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
 
@@ -51,25 +52,41 @@ export default function JobsPage() {
     }
 
     useEffect(() => {
-        fetchJobs()
         fetchCommonData()
     }, [])
+
+    useEffect(() => {
+        fetchJobs()
+    }, [currentPage, searchTerm])
 
     const fetchJobs = async () => {
         try {
             setLoading(true)
-            const { data, error } = await supabase
+            const start = (currentPage - 1) * ITEMS_PER_PAGE
+            const end = start + ITEMS_PER_PAGE - 1
+
+            let query = supabase
                 .from('jobs')
                 .select(`
                     *,
                     service:services(name),
                     vendor:vendors(studio_name, contact_person, mobile, email),
                     staff:users(name, email, mobile)
-                `)
+                `, { count: 'exact' })
+
+            if (searchTerm) {
+                // If there's a search term, we search in the description
+                // Note: Complex multi-table search is better via Views, but this works for basic search
+                query = query.ilike('description', `%${searchTerm}%`)
+            }
+
+            const { data, error, count } = await query
                 .order('created_at', { ascending: false })
+                .range(start, end)
 
             if (error) throw error
             setJobs(data || [])
+            setTotalCount(count || 0)
         } catch (error) {
             console.error('Error fetching jobs:', error)
         } finally {
@@ -322,21 +339,11 @@ export default function JobsPage() {
         }
     }
 
-    const filteredJobs = jobs.filter(job =>
-        job.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        job.service?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        job.staff?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        job.vendor?.studio_name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-
-    const totalPages = Math.ceil(filteredJobs.length / ITEMS_PER_PAGE)
-    const paginatedJobs = filteredJobs.slice(
-        (currentPage - 1) * ITEMS_PER_PAGE,
-        currentPage * ITEMS_PER_PAGE
-    )
+    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
+    const paginatedJobs = jobs
 
     useEffect(() => {
-        setCurrentPage(1)
+        if (currentPage !== 1) setCurrentPage(1)
     }, [searchTerm])
 
     return (
@@ -364,8 +371,7 @@ export default function JobsPage() {
                                 placeholder="Search by job, staff, vendor or service..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 h-9 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-500 shadow-inner"
-                            />
+                                className="w-full pl-10 pr-4 h-9 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-500 shadow-inner" />
                         </div>
                         <button
                             onClick={() => { resetFormData(); setShowCreateModal(true); }}
@@ -413,7 +419,13 @@ export default function JobsPage() {
                                             className="hover:bg-slate-50/50 transition-colors group/row cursor-pointer"
                                         >
                                             <td className="px-4 py-1.5 whitespace-nowrap">
-                                                <div className="text-[11px] text-slate-500 font-bold flex items-center">
+                                                <div 
+                                                    className="text-[11px] text-slate-500 font-bold flex items-center hover:text-indigo-600 cursor-pointer"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (job.vendor_id) router.push(`/dashboard/admin/vendors/view/${job.vendor_id}`);
+                                                    }}
+                                                >
                                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-200 mr-3 opacity-0 group-hover/row:opacity-100 transition-all scale-0 group-hover/row:scale-100" />
                                                     <Building2 size={12} className="mr-2 text-indigo-300" />
                                                     {job.vendor?.studio_name || 'N/A'}
@@ -513,8 +525,7 @@ export default function JobsPage() {
                         <Pagination
                             currentPage={currentPage}
                             totalPages={totalPages}
-                            onPageChange={setCurrentPage}
-                        />
+                            onPageChange={setCurrentPage} />
                     </div>
                 </div>
             </div>
@@ -568,43 +579,29 @@ export default function JobsPage() {
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                                 {/* Left Side */}
                                 <div className="lg:col-span-8 space-y-8">
-                                    <div>
-                                        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center">
-                                            <FileText size={16} className="mr-2 text-indigo-500" />
-                                            Work Description
-                                        </h3>
-                                        <div className="p-6 bg-slate-50/80 rounded-2xl border border-slate-100/50 relative overflow-hidden group">
-                                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity whitespace-nowrap overflow-hidden">
-                                                <Briefcase size={80} />
-                                            </div>
-                                            <p className="text-base font-bold text-slate-800 leading-relaxed italic relative z-10">
-                                                {selectedJob.description || "No description provided."}
-                                            </p>
-                                        </div>
-                                    </div>
-
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         <div className="space-y-4">
                                             <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest border-l-4 border-indigo-500 pl-4">General Details</h3>
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Assigned To</p>
-                                                    <div className="flex items-center space-x-3">
-                                                        <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500">
-                                                            <UserIcon size={14} />
-                                                        </div>
-                                                        <p className="text-sm font-bold text-slate-700">{selectedJob.staff?.name}</p>
+                                            <div className="space-y-3">
+                                                <div className="flex items-center space-x-4 p-4 bg-slate-50/80 rounded-2xl group transition-all hover:bg-slate-100 border border-slate-100/50">
+                                                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors shadow-sm">
+                                                        <UserIcon size={18} />
+                                                    </div>
+                                                    <div className="flex flex-col overflow-hidden">
+                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Assigned To</span>
+                                                        <span className="text-sm font-bold text-slate-900 truncate tracking-tight">{selectedJob.staff?.name || "Unassigned"}</span>
                                                     </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Studio Contact</p>
-                                                    <div className="flex items-center space-x-3">
-                                                        <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500">
-                                                            <Building2 size={14} />
-                                                        </div>
+
+                                                <div className="flex items-center space-x-4 p-4 bg-slate-50/80 rounded-2xl group transition-all hover:bg-slate-100 border border-slate-100/50">
+                                                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors shadow-sm">
+                                                        <Building2 size={18} />
+                                                    </div>
+                                                    <div className="flex flex-col overflow-hidden">
+                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Studio Contact</span>
                                                         <div className="flex flex-col">
-                                                            <p className="text-sm font-bold text-slate-700">{selectedJob.vendor?.contact_person}</p>
-                                                            <p className="text-[10px] text-slate-500 font-bold">{selectedJob.vendor?.email}</p>
+                                                            <span className="text-sm font-bold text-slate-900 truncate tracking-tight">{selectedJob.vendor?.contact_person || "N/A"}</span>
+                                                            {selectedJob.vendor?.email && <span className="text-[10px] text-slate-500 font-bold">{selectedJob.vendor?.email}</span>}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -619,7 +616,7 @@ export default function JobsPage() {
                                                         <MapPin size={18} />
                                                     </div>
                                                     <div className="flex flex-col overflow-hidden">
-                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Source Location</span>
+                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Source location</span>
                                                         <span className="text-sm font-bold text-slate-900 truncate tracking-tight">{selectedJob.data_location || "Pending"}</span>
                                                     </div>
                                                 </div>
@@ -629,11 +626,26 @@ export default function JobsPage() {
                                                         <ExternalLink size={18} />
                                                     </div>
                                                     <div className="flex flex-col overflow-hidden">
-                                                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Output Destination</span>
+                                                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Output location</span>
                                                         <span className="text-sm font-bold text-indigo-900 truncate tracking-tight">{selectedJob.final_location || "Pending"}</span>
                                                     </div>
                                                 </div>
                                             </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center">
+                                            <FileText size={16} className="mr-2 text-indigo-500" />
+                                            Work Description
+                                        </h3>
+                                        <div className="p-6 bg-slate-50/80 rounded-2xl border border-slate-100/50 relative overflow-hidden group">
+                                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity whitespace-nowrap overflow-hidden">
+                                                <Briefcase size={80} />
+                                            </div>
+                                            <p className="text-base font-bold text-slate-800 leading-relaxed italic relative z-10">
+                                                {selectedJob.description || "No description provided."}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -739,8 +751,7 @@ export default function JobsPage() {
                                             options={vendors.map(v => ({ id: v.id, name: v.studio_name }))}
                                             value={selectedVendor}
                                             onChange={setSelectedVendor}
-                                            placeholder="Select Vendor..."
-                                        />
+                                            placeholder="Select Vendor..." />
                                         <AestheticSelect
                                             label="Service / Job Type"
                                             heightClass="h-11"
@@ -748,8 +759,7 @@ export default function JobsPage() {
                                             options={services.map(s => ({ id: s.id, name: s.name }))}
                                             value={selectedService}
                                             onChange={setSelectedService}
-                                            placeholder="Select Service..."
-                                        />
+                                            placeholder="Select Service..." />
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-end">
@@ -761,8 +771,7 @@ export default function JobsPage() {
                                             options={filteredStaffList.map(s => ({ id: s.id, name: s.name }))}
                                             value={selectedStaff}
                                             onChange={setSelectedStaff}
-                                            placeholder={selectedService ? 'Select Assigned User...' : 'Choose Service First'}
-                                        />
+                                            placeholder={selectedService ? 'Select Assigned User...' : 'Choose Service First'} />
 
                                         <div>
                                             <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block ml-1">Job Due Date <span className="text-rose-500">*</span></label>
@@ -771,8 +780,7 @@ export default function JobsPage() {
                                                 className="w-full h-8 bg-white border-2 border-slate-100 rounded-full px-4 text-[10px] font-black uppercase tracking-widest text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-50 transition-all duration-300"
                                                 value={formData.job_due_date}
                                                 onChange={e => setFormData({ ...formData, job_due_date: e.target.value })}
-                                                required
-                                            />
+                                                required />
                                         </div>
 
                                         <AestheticSelect
@@ -784,8 +792,7 @@ export default function JobsPage() {
                                                 { id: 'COMPLETED', name: 'COMPLETE' }
                                             ]}
                                             value={formData.status}
-                                            onChange={(val) => setFormData({ ...formData, status: val })}
-                                        />
+                                            onChange={(val) => setFormData({ ...formData, status: val })} />
                                     </div>
 
                                     <div>
@@ -795,31 +802,28 @@ export default function JobsPage() {
                                             placeholder="Provide clear instructions for the staff..."
                                             value={formData.description}
                                             onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                            required
-                                        />
+                                            required />
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                         <div>
-                                            <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Data Location (Source)</label>
+                                            <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Source location</label>
                                             <input
                                                 type="text"
                                                 className="input-aesthetic h-12 px-4 text-sm"
                                                 placeholder="Source folder path..."
                                                 value={formData.data_location}
-                                                onChange={e => setFormData({ ...formData, data_location: e.target.value })}
-                                            />
+                                                onChange={e => setFormData({ ...formData, data_location: e.target.value })} />
                                         </div>
 
                                         <div>
-                                            <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Final Location (Destination)</label>
+                                            <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Output location</label>
                                             <input
                                                 type="text"
                                                 className="input-aesthetic h-12 px-4 text-sm"
                                                 placeholder="Final destination path..."
                                                 value={formData.final_location}
-                                                onChange={e => setFormData({ ...formData, final_location: e.target.value })}
-                                            />
+                                                onChange={e => setFormData({ ...formData, final_location: e.target.value })} />
                                         </div>
                                     </div>
 
@@ -836,8 +840,7 @@ export default function JobsPage() {
                                                     onFocus={(e) => e.target.select()}
                                                     onChange={e => setFormData({ ...formData, amount: Number(e.target.value) })}
                                                     required
-                                                    min="0"
-                                                />
+                                                    min="0" />
                                             </div>
                                             <div className="mt-2 flex items-center justify-between px-2">
                                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Est. Commission</span>
@@ -872,3 +875,4 @@ export default function JobsPage() {
         </div>
     )
 }
+
