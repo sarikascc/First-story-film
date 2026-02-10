@@ -124,11 +124,11 @@ export default function MyJobsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] lg:ml-72 p-6 lg:p-10 text-slate-900 font-body">
+        <div className="min-h-screen bg-[#f1f5f9] lg:ml-72 p-6 lg:p-10 text-slate-900 font-body">
             <div className="max-w-6xl mx-auto">
                 <div className="mb-6 animate-slide-up">
                     <h1 className="text-3xl font-bold text-slate-900 font-heading tracking-tight uppercase flex items-center gap-4">
-                        My Production Queue
+                        My Production Jobs
                         {debugCount !== null && (
                             <span className="text-[10px] bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full font-black tracking-widest">
                                 {debugCount} ASSIGNED
@@ -145,7 +145,7 @@ export default function MyJobsPage() {
                             placeholder="Search by job name or instructions..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="input-aesthetic pl-12 h-12 bg-white shadow-sm w-full text-sm rounded-2xl"
+                            className="input-aesthetic pl-12 h-12 bg-slate-100/80 border border-slate-200 shadow-sm w-full text-sm rounded-2xl"
                         />
                     </div>
                 </div>
@@ -154,15 +154,15 @@ export default function MyJobsPage() {
                     <div className="overflow-visible pb-12">
                         <table className="w-full text-left border-collapse min-w-[700px]">
                             <thead>
-                                <tr className="bg-slate-50/50 border-b border-slate-100">
-                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Job Details</th>
-                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Studio</th>
-                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Status</th>
-                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Due Date</th>
-                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 text-right pr-6">Update</th>
+                                <tr className="bg-slate-100/80 border-b border-slate-200">
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Job Details</th>
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Studio</th>
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Status</th>
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Due Date</th>
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 text-right pr-6">Update</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+                            <tbody className="divide-y divide-slate-100">
                                 {paginatedJobs.length === 0 ? (
                                     <tr>
                                         <td colSpan={5} className="py-20 text-center">
@@ -175,15 +175,15 @@ export default function MyJobsPage() {
                                     </tr>
                                 ) : (
                                     paginatedJobs.map((job) => (
-                                        <tr key={job.id} className="hover:bg-indigo-50/10 transition-colors group/row">
+                                        <tr 
+                                            key={job.id} 
+                                            onClick={() => router.push(`/dashboard/staff/my-jobs/view/${job.id}`)}
+                                            className="hover:bg-indigo-50/10 transition-colors group/row cursor-pointer"
+                                        >
                                             <td className="px-4 py-0.5">
-                                                <Link 
-                                                    href={`/dashboard/staff/my-jobs/view/${job.id}`}
-                                                    className="font-bold text-slate-900 text-[13px] group-hover/row:text-indigo-600 transition-colors leading-tight mb-0.5 flex items-center group/link"
-                                                >
+                                                <div className="font-bold text-slate-900 text-[13px] group-hover/row:text-indigo-600 transition-colors leading-tight mb-0.5 flex items-center group/link">
                                                     {job.service?.name || 'Manual Project'}
-                                                    <ExternalLink size={10} className="ml-2 text-slate-200 group-hover/link:text-indigo-400 opacity-0 group-hover/link:opacity-100 transition-all" />
-                                                </Link>
+                                                </div>
                                                 <div className="text-[10px] text-slate-400 line-clamp-1 font-bold">{job.description}</div>
                                             </td>
                                             <td className="px-4 py-0.5">
@@ -199,7 +199,9 @@ export default function MyJobsPage() {
                                                     job.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                                         'bg-indigo-50 text-indigo-600 border-indigo-100'
                                                     }`}>
-                                                    {job.status}
+                                                    {job.status === 'IN_PROGRESS' ? 'IN-PROGRESS' : 
+                                                     job.status === 'COMPLETED' ? 'COMPLETE' : 
+                                                     job.status}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-0.5">
@@ -209,13 +211,12 @@ export default function MyJobsPage() {
                                                 </div>
                                             </td>
                                             <td className="px-4 py-0.5 w-[180px]">
-                                                <div className="flex justify-end pr-2">
+                                                <div className="flex justify-end pr-2" onClick={(e) => e.stopPropagation()}>
                                                     <AestheticSelect
                                                         options={[
                                                             { id: 'PENDING', name: 'PENDING' },
-                                                            { id: 'IN_PROGRESS', name: 'IN PROGRESS' },
-                                                            { id: 'PAUSE', name: 'PAUSE' },
-                                                            { id: 'COMPLETED', name: 'COMPLETED' }
+                                                            { id: 'IN_PROGRESS', name: 'IN-PROGRESS' },
+                                                            { id: 'COMPLETED', name: 'COMPLETE' }
                                                         ]}
                                                         value={job.status}
                                                         disabled={actionLoading === job.id}

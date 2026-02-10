@@ -104,7 +104,7 @@ export default function EditJobPage() {
                     staff_id,
                     percentage,
                     due_date,
-                    users!staff_service_configs_staff_id_fkey(id, name)
+                    users!staff_id(id, name)
                 `)
                 .eq('service_id', selectedService)
 
@@ -244,9 +244,8 @@ export default function EditJobPage() {
                                         required
                                         options={[
                                             { id: 'PENDING', name: 'PENDING' },
-                                            { id: 'IN_PROGRESS', name: 'IN PROGRESS' },
-                                            { id: 'PAUSE', name: 'PAUSE' },
-                                            { id: 'COMPLETED', name: 'COMPLETED' }
+                                            { id: 'IN_PROGRESS', name: 'IN-PROGRESS' },
+                                            { id: 'COMPLETED', name: 'COMPLETE' }
                                         ]}
                                         value={formData.status}
                                         onChange={(val) => setFormData({ ...formData, status: val })}

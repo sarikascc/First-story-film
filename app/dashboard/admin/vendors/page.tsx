@@ -29,7 +29,7 @@ export default function VendorsPage() {
 
     useEffect(() => {
         fetchVendors()
-    }, [router])
+    }, [])
 
     const fetchVendors = async () => {
         try {
@@ -74,11 +74,26 @@ export default function VendorsPage() {
                     .update(formData)
                     .eq('id', editingVendor.id)
                 if (error) throw error
+                // Success feedback for update
+                alert('Vendor updated successfully!')
             } else {
-                const { error } = await (supabase
-                    .from('vendors') as any)
-                    .insert([formData])
-                if (error) throw error
+                // Use Admin API to bypass RLS for vendor creation
+                const { data: { session } } = await supabase.auth.getSession()
+                const response = await fetch('/api/admin/create-vendor', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session?.access_token}`
+                    },
+                    body: JSON.stringify(formData)
+                })
+
+                if (!response.ok) {
+                    const errorData = await response.json()
+                    throw new Error(errorData.error || 'Failed to create vendor')
+                }
+                // Success feedback for creation
+                alert('Vendor registered successfully!')
             }
 
             setShowModal(false)
@@ -147,7 +162,7 @@ export default function VendorsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] text-slate-800 lg:ml-72">
+        <div className="min-h-screen bg-[#f1f5f9] text-slate-800 lg:ml-72">
             <div className="w-full px-2 py-4 lg:px-4 lg:py-8">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 animate-slide-up px-2">
@@ -167,13 +182,13 @@ export default function VendorsPage() {
                     {/* Toolbar Inside Card */}
                     <div className="px-12 py-5 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="relative w-full md:w-[350px] group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={14} />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={14} />
                             <input
                                 type="text"
                                 placeholder="Search by studio or contact name..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 h-9 bg-slate-50/50 border-none rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 shadow-inner"
+                                className="w-full pl-10 pr-4 h-9 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-400 shadow-inner"
                             />
                         </div>
                         <button 
@@ -189,14 +204,15 @@ export default function VendorsPage() {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-slate-50/30">
-                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Studio Details</th>
-                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Contact Person</th>
-                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Contact Info</th>
-                                    <th className="px-12 py-3 text-right text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Actions</th>
+                                <tr className="bg-slate-100/80 border-b border-slate-200">
+                                    <th className="px-12 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Studio Details</th>
+                                    <th className="px-12 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Location</th>
+                                    <th className="px-12 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Contact Person</th>
+                                    <th className="px-12 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Contact Info</th>
+                                    <th className="px-12 py-4 text-right text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+                            <tbody className="divide-y divide-slate-100">
                                 {paginatedVendors.length === 0 ? (
                                     <tr>
                                         <td colSpan={4} className="py-20 text-center">
@@ -209,20 +225,25 @@ export default function VendorsPage() {
                                 ) : (
                                     paginatedVendors.map((vendor) => (
                                         <tr key={vendor.id} className="hover:bg-slate-50/50 transition-colors group/row">
-                                            <td className="px-12 py-0.5">
+                                            <td className="px-12 py-2">
                                                 <div className="text-base font-bold text-slate-900 group-hover/row:text-indigo-600 transition-colors flex items-center">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-200 mr-3 opacity-0 group-hover/row:opacity-100 transition-all scale-0 group-hover/row:scale-100" />
                                                     {vendor.studio_name}
                                                 </div>
-                                                <div className="text-[10px] text-slate-400 font-bold mt-1 ml-4.5">{vendor.location || 'No Location Set'}</div>
                                             </td>
-                                            <td className="px-12 py-0.5">
+                                            <td className="px-12 py-2">
+                                                <div className="flex items-center text-[11px] font-black uppercase tracking-widest text-slate-400">
+                                                    <MapPin size={14} className="mr-2 text-indigo-300" />
+                                                    {vendor.location || 'N/A'}
+                                                </div>
+                                            </td>
+                                            <td className="px-12 py-2">
                                                 <div className="text-[11px] text-slate-400 font-bold flex items-center">
                                                     <User size={12} className="mr-2 text-indigo-300" />
                                                     {vendor.contact_person}
                                                 </div>
                                             </td>
-                                            <td className="px-12 py-0.5">
+                                            <td className="px-12 py-2">
                                                 <div className="flex flex-col space-y-1">
                                                     <div className="text-[11px] text-slate-400 font-bold flex items-center">
                                                         <Smartphone size={12} className="mr-2 text-indigo-300" />
@@ -235,18 +256,18 @@ export default function VendorsPage() {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-12 py-0.5">
+                                            <td className="px-12 py-2">
                                                 <div className="flex items-center justify-end space-x-2">
                                                     <button
                                                         onClick={() => openEditModal(vendor)}
-                                                        className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
+                                                        className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
                                                         title="Edit Vendor"
                                                     >
                                                         <Edit2 size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleDelete(vendor.id)}
-                                                        className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
+                                                        className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-rose-500 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
                                                         title="Delete Vendor"
                                                     >
                                                         <Trash2 size={14} />
@@ -276,7 +297,7 @@ export default function VendorsPage() {
                     <div className="modal-aesthetic" onClick={e => e.stopPropagation()}>
                         <div className="mb-6">
                             <h2 className="text-xl font-black text-slate-900 font-heading tracking-tight leading-tight uppercase">
-                                {editingVendor ? 'Refine Vendor' : 'New Vendor'}
+                                {editingVendor ? 'Edit Vendor' : 'New Vendor'}
                             </h2>
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-4">
@@ -351,9 +372,9 @@ export default function VendorsPage() {
                             </div>
                             <div className="flex space-x-3 pt-4 border-t border-slate-50">
                                 <button type="submit" className="flex-1 h-11 bg-indigo-600 hover:bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-indigo-100 transition-all duration-300">
-                                    {editingVendor ? 'Official Update' : 'Official Save'}
+                                    {editingVendor ? 'Update' : 'Save'}
                                 </button>
-                                <button type="button" onClick={() => setShowModal(false)} className="flex-1 h-11 bg-white text-slate-300 hover:text-slate-600 border border-slate-100 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all">
+                                <button type="button" onClick={() => setShowModal(false)} className="flex-1 h-11 bg-white text-slate-400 hover:text-slate-600 border border-slate-100 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all">
                                     Cancel
                                 </button>
                             </div>

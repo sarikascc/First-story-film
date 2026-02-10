@@ -157,7 +157,7 @@ export default function DashboardPage() {
                     <div className="card-aesthetic p-6 group hover:bg-slate-50 transition-colors">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">In Progress</p>
+                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">In-Progress</p>
                                 <p className="text-3xl font-bold font-heading text-slate-900">{stats.inProgress}</p>
                             </div>
                             <div className="p-3 bg-amber-50 rounded-2xl text-amber-600 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">

@@ -185,34 +185,25 @@ export default function StaffPage() {
             } else {
                 if (!editingId) return;
                 userId = editingId
-                const updateData: any = {
-                    name: formData.name,
-                    email: formData.email,
-                    mobile: formData.mobile,
-                    role: formData.role
-                }
-
-                if (formData.password) {
-                    const passResponse = await fetch('/api/admin/update-user', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            id: editingId,
-                            password: formData.password
-                        })
+                
+                // Update via Admin API to bypass RLS and handle Auth/Public sync
+                const updateResponse = await fetch('/api/admin/update-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: editingId,
+                        name: formData.name,
+                        email: formData.email,
+                        mobile: formData.mobile,
+                        role: formData.role,
+                        password: formData.password || undefined // Only send if changed
                     })
-                    if (!passResponse.ok) {
-                        const passData = await passResponse.json()
-                        throw new Error(passData.error || 'Failed to update password')
-                    }
+                })
+
+                if (!updateResponse.ok) {
+                    const updateData = await updateResponse.json()
+                    throw new Error(updateData.error || 'Failed to update user')
                 }
-
-                const { error: userError } = await (supabase
-                    .from('users') as any)
-                    .update(updateData)
-                    .eq('id', editingId)
-
-                if (userError) throw userError
 
                 await supabase.from('staff_service_configs').delete().eq('staff_id', editingId)
             }
@@ -295,7 +286,7 @@ export default function StaffPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] text-slate-800 lg:ml-72">
+        <div className="min-h-screen bg-[#f1f5f9] text-slate-800 lg:ml-72">
             <div className="w-full px-2 py-4 lg:px-4 lg:py-8">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 animate-slide-up px-2">
@@ -315,13 +306,13 @@ export default function StaffPage() {
                     {/* Toolbar Inside Card */}
                     <div className="px-12 py-5 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="relative w-full md:w-[350px] group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={14} />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={14} />
                             <input
                                 type="text"
                                 placeholder="Search by name, email, or role..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 h-9 bg-slate-50/50 border-none rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 shadow-inner"
+                                className="w-full pl-10 pr-4 h-9 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-400 shadow-inner"
                             />
                         </div>
                         <button 
@@ -337,15 +328,15 @@ export default function StaffPage() {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-slate-50/30">
-                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">User Profile</th>
-                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Email</th>
-                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Mobile Number</th>
-                                    <th className="px-12 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">System Role</th>
-                                    <th className="px-12 py-3 text-right text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Actions</th>
+                                <tr className="bg-slate-100/80 border-b border-slate-200">
+                                    <th className="px-12 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">User Profile</th>
+                                    <th className="px-12 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Email</th>
+                                    <th className="px-12 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Mobile Number</th>
+                                    <th className="px-12 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 text-center">System Role</th>
+                                    <th className="px-12 py-4 text-right text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+                            <tbody className="divide-y divide-slate-100">
                                 {paginatedStaff.length === 0 ? (
                                     <tr>
                                         <td colSpan={5} className="py-20 text-center">
@@ -357,30 +348,30 @@ export default function StaffPage() {
                                     </tr>
                                 ) : (
                                     paginatedStaff.map((member) => (
-                                        <tr key={member.id} className="hover:bg-slate-50/50 transition-colors group/row">
-                                            <td className="px-12 py-0.5">
-                                                <Link 
-                                                    href={`/dashboard/admin/staff/${member.id}`}
-                                                    className="text-base font-bold text-slate-900 hover:text-indigo-600 transition-colors flex items-center group/name"
-                                                >
+                                        <tr 
+                                            key={member.id} 
+                                            onClick={() => router.push(`/dashboard/admin/staff/${member.id}`)}
+                                            className="hover:bg-slate-50/50 transition-colors group/row cursor-pointer"
+                                        >
+                                            <td className="px-12 py-2">
+                                                <div className="text-base font-bold text-slate-900 group-hover/row:text-indigo-600 transition-colors flex items-center group/name">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-200 mr-3 opacity-0 group-hover/row:opacity-100 transition-all scale-0 group-hover/row:scale-100" />
                                                     {member.name}
-                                                    <ExternalLink size={12} className="ml-2 text-slate-200 group-hover/name:text-indigo-400 transition-colors" />
-                                                </Link>
+                                                </div>
                                             </td>
-                                            <td className="px-12 py-0.5">
+                                            <td className="px-12 py-2">
                                                 <div className="text-xs text-slate-400 font-bold flex items-center">
                                                     <Mail size={12} className="mr-2 text-indigo-300" />
                                                     {member.email}
                                                 </div>
                                             </td>
-                                            <td className="px-12 py-0.5">
+                                            <td className="px-12 py-2">
                                                 <div className="text-xs text-slate-400 font-bold flex items-center">
                                                     <Smartphone size={12} className="mr-2 text-indigo-300" />
                                                     {member.mobile || 'N/A'}
                                                 </div>
                                             </td>
-                                            <td className="px-12 py-0.5 text-center">
+                                            <td className="px-12 py-2 text-center">
                                                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.2em] border ${member.role === 'ADMIN' ? 'bg-rose-50 text-rose-600 border-rose-100' :
                                                     member.role === 'MANAGER' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                                         'bg-indigo-50 text-indigo-600 border-indigo-100'
@@ -388,18 +379,18 @@ export default function StaffPage() {
                                                     {member.role}
                                                 </span>
                                             </td>
-                                            <td className="px-12 py-0.5">
-                                                <div className="flex items-center justify-end space-x-2">
+                                            <td className="px-12 py-2">
+                                                <div className="flex items-center justify-end space-x-2" onClick={(e) => e.stopPropagation()}>
                                                     <button
                                                         onClick={() => handleEdit(member)}
-                                                        className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-indigo-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
+                                                        className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
                                                         title="Edit / Manage Commissions"
                                                     >
                                                         <Edit2 size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => confirmDelete(member)}
-                                                        className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
+                                                        className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-rose-500 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
                                                         title="Delete User"
                                                     >
                                                         <Trash2 size={14} />
@@ -585,7 +576,7 @@ export default function StaffPage() {
 
                                 <div className="pt-4 flex gap-4">
                                     <button type="submit" disabled={submitting} className="btn-aesthetic flex-1 h-11 text-xs flex items-center justify-center tracking-widest">
-                                        <Save size={16} className="mr-2" /> {submitting ? 'Saving...' : (modalMode === 'create' ? 'Register Official Profile' : 'Update User Profile')}
+                                        <Save size={16} className="mr-2" /> {submitting ? 'Saving...' : (modalMode === 'create' ? 'Save Profile' : 'Update Profile')}
                                     </button>
                                 </div>
                             </form>

@@ -37,24 +37,44 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json()
-        const { id, password } = body
+        const { id, password, name, email, mobile, role } = body
 
-        if (!id || !password) {
+        if (!id) {
             return NextResponse.json(
-                { error: 'User ID and Password are required' },
+                { error: 'User ID is required' },
                 { status: 400 }
             )
         }
 
-        // Update User in Supabase Auth using Admin Auth API
-        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-            id,
-            { password }
-        )
+        // 1. Update User in Supabase Auth if password/email provided
+        const authUpdates: any = {}
+        if (password) authUpdates.password = password
+        if (email) authUpdates.email = email
 
-        if (authError) throw authError
+        if (Object.keys(authUpdates).length > 0) {
+            const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+                id,
+                authUpdates
+            )
+            if (authError) throw authError
+        }
 
-        return NextResponse.json({ success: true, message: 'Password updated successfully' })
+        // 2. Update User in public.users table
+        const publicUpdates: any = {}
+        if (name !== undefined) publicUpdates.name = name
+        if (email !== undefined) publicUpdates.email = email
+        if (role !== undefined) publicUpdates.role = role
+        if (mobile !== undefined) publicUpdates.mobile = mobile
+        publicUpdates.updated_at = new Date().toISOString()
+
+        const { error: publicError } = await supabaseAdmin
+            .from('users')
+            .update(publicUpdates)
+            .eq('id', id)
+
+        if (publicError) throw publicError
+
+        return NextResponse.json({ success: true, message: 'User updated successfully' })
     } catch (error: any) {
         console.error('Update password error:', error)
         return NextResponse.json(

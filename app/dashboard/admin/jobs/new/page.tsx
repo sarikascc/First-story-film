@@ -67,7 +67,7 @@ export default function NewJobPage() {
                     staff_id,
                     percentage,
                     due_date,
-                    users!staff_service_configs_staff_id_fkey(id, name)
+                    users!staff_id(id, name)
                 `)
                 .eq('service_id', selectedService)
 
@@ -211,9 +211,8 @@ export default function NewJobPage() {
                                         required
                                         options={[
                                             { id: 'PENDING', name: 'PENDING' },
-                                            { id: 'IN_PROGRESS', name: 'IN PROGRESS' },
-                                            { id: 'PAUSE', name: 'PAUSE' },
-                                            { id: 'COMPLETED', name: 'COMPLETED' }
+                                            { id: 'IN_PROGRESS', name: 'IN-PROGRESS' },
+                                            { id: 'COMPLETED', name: 'COMPLETE' }
                                         ]}
                                         value={formData.status}
                                         onChange={(val) => setFormData({ ...formData, status: val })}
@@ -279,7 +278,7 @@ export default function NewJobPage() {
                                         className="w-full bg-indigo-600 hover:bg-slate-900 text-white rounded-[1rem] font-black text-[11px] uppercase tracking-[0.2em] transition-all duration-300 flex items-center justify-center h-12 shadow-lg shadow-indigo-100"
                                     >
                                         <Save size={16} className="mr-2" />
-                                        {loading ? 'Processing...' : 'Official Post Job'}
+                                        {loading ? 'Processing...' : 'Post Job'}
                                     </button>
                                 </div>
                             </div>

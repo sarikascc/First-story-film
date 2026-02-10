@@ -20,10 +20,11 @@ export default function JobsPage() {
 
     useEffect(() => {
         fetchJobs()
-    }, [router])
+    }, [])
 
     const fetchJobs = async () => {
         try {
+            setLoading(true)
             // Joining with service, vendor, and staff
             const { data, error } = await supabase
                 .from('jobs')
@@ -94,7 +95,7 @@ export default function JobsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] lg:ml-72">
+        <div className="min-h-screen bg-[#f1f5f9] lg:ml-72">
             <div className="w-full px-2 py-4 lg:px-4 lg:py-8">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 animate-slide-up px-2">
                     <div className="flex items-center space-x-4">
@@ -112,13 +113,13 @@ export default function JobsPage() {
                     {/* Toolbar Inside Card */}
                     <div className="px-6 py-5 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="relative w-full md:w-[350px] group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={14} />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={14} />
                             <input
                                 type="text"
                                 placeholder="Search by job, staff, vendor or service..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 h-9 bg-slate-50/50 border-none rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 shadow-inner"
+                                className="w-full pl-10 pr-4 h-9 bg-slate-100/80 border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-400 shadow-inner"
                             />
                         </div>
                         <button
@@ -133,90 +134,92 @@ export default function JobsPage() {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-slate-50/30">
-                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Vendor</th>
-                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Job Type</th>
-                                    <th className="pl-4 pr-1 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Work Description</th>
-                                    <th className="pl-1 pr-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Assigned To</th>
-                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">job amount</th>
-                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">Job Status</th>
-                                    <th className="px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Due Date</th>
-                                    <th className="px-4 py-3 text-center text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Actions</th>
+                                <tr className="bg-slate-100/80 border-b border-slate-200">
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Vendor</th>
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Job Type</th>
+                                    <th className="pl-4 pr-1 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Work Description</th>
+                                    <th className="pl-1 pr-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Assigned To</th>
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">job amount</th>
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 text-center">Job Status</th>
+                                    <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Due Date</th>
+                                    <th className="px-4 py-4 text-center text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+                            <tbody className="divide-y divide-slate-100">
                                 {paginatedJobs.length === 0 ? (
                                     <tr>
                                         <td colSpan={8} className="py-20 text-center">
                                             <div className="inline-flex p-5 bg-slate-50 rounded-full mb-3">
                                                 <ClipboardList size={28} className="text-slate-200" />
                                             </div>
-                                            <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">No active productions detected</p>
+                                            <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">No productions detected</p>
                                         </td>
                                     </tr>
                                 ) : (
                                     paginatedJobs.map((job) => (
-                                        <tr key={job.id} className="hover:bg-slate-50/50 transition-colors group/row">
-                                            <td className="px-4 py-0.5 whitespace-nowrap">
+                                        <tr 
+                                            key={job.id} 
+                                            onClick={() => router.push(`/dashboard/admin/jobs/view/${job.id}`)}
+                                            className="hover:bg-slate-50/50 transition-colors group/row cursor-pointer"
+                                        >
+                                            <td className="px-4 py-2 whitespace-nowrap">
                                                 <div className="text-[12px] text-slate-400 font-bold flex items-center">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-200 mr-3 opacity-0 group-hover/row:opacity-100 transition-all scale-0 group-hover/row:scale-100" />
                                                     <Building2 size={12} className="mr-2 text-indigo-300" />
                                                     {job.vendor?.studio_name || 'N/A'}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-0.5 whitespace-nowrap">
-                                                <Link 
-                                                    href={`/dashboard/admin/jobs/view/${job.id}`}
-                                                    className="font-bold text-slate-900 hover:text-indigo-600 transition-colors text-[14px] leading-none flex items-center group/name"
-                                                >
+                                            <td className="px-4 py-2 whitespace-nowrap">
+                                                <div className="font-bold text-slate-900 group-hover/row:text-indigo-600 transition-colors text-[14px] leading-none flex items-center group/name">
                                                     {job.service?.name}
-                                                    <ExternalLink size={10} className="ml-2 text-slate-200 group-hover/name:text-indigo-400 opacity-0 group-hover/name:opacity-100 transition-all" />
-                                                </Link>
+                                                </div>
                                             </td>
-                                            <td className="pl-4 pr-1 py-0.5">
+                                            <td className="pl-4 pr-1 py-2">
                                                 <div className="text-[13px] text-slate-400 font-bold leading-relaxed max-w-[200px] line-clamp-1 italic">{job.description}</div>
                                             </td>
-                                            <td className="pl-1 pr-4 py-0.5 whitespace-nowrap">
+                                            <td className="pl-1 pr-4 py-2 whitespace-nowrap">
                                                 <div className="text-base font-bold text-slate-900 group-hover/row:text-indigo-600 transition-colors flex items-center">
                                                     {job.staff?.name || 'Unassigned'}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-0.5 whitespace-nowrap">
+                                            <td className="px-4 py-2 whitespace-nowrap">
                                                 <div className="text-[13px] font-black text-slate-900">{formatCurrency(job.amount)}</div>
                                                 <div className="text-[10px] text-emerald-600 font-black uppercase tracking-wider">Comm: {formatCurrency(job.commission_amount)}</div>
                                             </td>
-                                            <td className="px-4 py-0.5 text-center whitespace-nowrap">
+                                            <td className="px-4 py-2 text-center whitespace-nowrap">
                                                 <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-sm border ${job.status === 'COMPLETED' ? 'bg-emerald-500 text-white border-emerald-600' :
                                                     job.status === 'PENDING' ? 'bg-amber-400 text-white border-amber-500' :
                                                         'bg-indigo-600 text-white border-indigo-700'
                                                     }`}>
-                                                    {job.status}
+                                                    {job.status === 'IN_PROGRESS' ? 'IN-PROGRESS' : 
+                                                     job.status === 'COMPLETED' ? 'COMPLETE' : 
+                                                     job.status}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-0.5 whitespace-nowrap">
+                                            <td className="px-4 py-2 whitespace-nowrap">
                                                 <div className="text-[12px] text-slate-400 font-bold flex items-center">
                                                     <Calendar size={14} className="mr-2 text-indigo-300" /> {new Date(job.job_due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-0.5">
-                                                <div className="flex items-center justify-center space-x-2">
+                                            <td className="px-4 py-2">
+                                                <div className="flex items-center justify-center space-x-2" onClick={(e) => e.stopPropagation()}>
                                                     <button
                                                         onClick={() => handleStatusUpdate(job.id, 'PENDING')}
-                                                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all border shadow-sm ${job.status === 'PENDING' ? 'bg-[#F59E0B] text-white border-[#F59E0B]' : 'bg-white text-slate-300 border-slate-100 hover:text-[#F59E0B] hover:border-amber-200'}`}
+                                                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all border shadow-sm ${job.status === 'PENDING' ? 'bg-[#F59E0B] text-white border-[#F59E0B]' : 'bg-white text-slate-500 border-slate-100 hover:text-[#F59E0B] hover:border-amber-200'}`}
                                                         title="Mark as Pending"
                                                     >
                                                         <Clock size={16} strokeWidth={2.5} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleStatusUpdate(job.id, 'IN_PROGRESS')}
-                                                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all border shadow-sm ${job.status === 'IN_PROGRESS' ? 'bg-[#4F46E5] text-white border-[#4F46E5]' : 'bg-white text-slate-300 border-slate-100 hover:text-[#4F46E5] hover:border-indigo-200'}`}
-                                                        title="Mark as In Progress"
+                                                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all border shadow-sm ${job.status === 'IN_PROGRESS' ? 'bg-[#4F46E5] text-white border-[#4F46E5]' : 'bg-white text-slate-500 border-slate-100 hover:text-[#4F46E5] hover:border-indigo-200'}`}
+                                                        title="Mark as In-Progress"
                                                     >
                                                         <Zap size={16} strokeWidth={2.5} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleStatusUpdate(job.id, 'COMPLETED')}
-                                                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all border shadow-sm ${job.status === 'COMPLETED' ? 'bg-[#10B981] text-white border-[#10B981]' : 'bg-white text-slate-300 border-slate-100 hover:text-[#10B981] hover:border-emerald-200'}`}
+                                                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all border shadow-sm ${job.status === 'COMPLETED' ? 'bg-[#10B981] text-white border-[#10B981]' : 'bg-white text-slate-500 border-slate-100 hover:text-[#10B981] hover:border-emerald-200'}`}
                                                         title="Mark as Completed"
                                                     >
                                                         <CheckCircle2 size={16} strokeWidth={2.5} />
@@ -224,7 +227,7 @@ export default function JobsPage() {
                                                     <div className="w-[1px] h-5 bg-slate-100 mx-1" />
                                                     <button
                                                         onClick={() => router.push(`/dashboard/admin/jobs/edit/${job.id}`)}
-                                                        className="w-9 h-9 flex items-center justify-center bg-white text-slate-400 hover:text-white hover:bg-slate-900 rounded-xl transition-all border border-slate-100 hover:border-slate-900 shadow-sm"
+                                                        className="w-9 h-9 flex items-center justify-center bg-white text-slate-500 hover:text-white hover:bg-slate-900 rounded-xl transition-all border border-slate-100 hover:border-slate-900 shadow-sm"
                                                         title="Edit Job"
                                                     >
                                                         <Edit2 size={16} strokeWidth={2.5} />

@@ -103,7 +103,7 @@ export function getStatusLabel(
 ): string {
     const labels = {
         PENDING: 'Pending',
-        IN_PROGRESS: 'In Progress',
+        IN_PROGRESS: 'In-Progress',
         PAUSE: 'Paused',
         COMPLETED: 'Completed'
     }

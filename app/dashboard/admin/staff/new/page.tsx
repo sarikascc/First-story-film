@@ -290,7 +290,7 @@ export default function NewUserPage() {
                             className="w-full bg-indigo-600 hover:bg-slate-900 text-white rounded-[1rem] font-black text-[11px] uppercase tracking-[0.2em] transition-all duration-300 flex items-center justify-center h-12 shadow-lg shadow-indigo-100"
                         >
                             <Save size={16} className="mr-2" />
-                            {loading ? 'Processing...' : 'Official Save User'}
+                            {loading ? 'Processing...' : 'Save User'}
                         </button>
                         <button
                             type="button"
