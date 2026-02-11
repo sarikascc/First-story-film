@@ -83,12 +83,12 @@ export default function DashboardLayout({
                     timestamp: new Date().toISOString()
                 })
                 
+                // CRITICAL: Always set a role, even on error, to prevent stuck loader
                 // If user doesn't exist in users table, that's a data issue
                 // But we'll default to USER role to prevent blocking
-                if (userRole === null) {
-                    console.log('[LAYOUT] ⚠️ Setting default role USER due to error (user may not exist in users table)')
-                    setUserRole('USER')
-                }
+                console.log('[LAYOUT] ⚠️ Setting default role USER due to error (user may not exist in users table)')
+                setUserRole('USER')
+                setUserName('') // Clear name on error
                 return
             }
 
@@ -98,20 +98,33 @@ export default function DashboardLayout({
                     ? typedProfile.role 
                     : 'USER' // Fallback to USER if invalid role
                 
-                console.log('[LAYOUT] ✅ Profile loaded from users table', {
+                console.log('[LAYOUT] ✅ Profile loaded from users table - SETTING ROLE', {
                     userId,
                     role: newRole, // From users.role column
                     name: typedProfile.name,
+                    previousRole: userRole,
                     timestamp: new Date().toISOString()
                 })
+                
+                // CRITICAL: Always set role, even if it's the same
+                // This ensures state is updated and components re-render
                 setUserRole(newRole)
                 setUserName(typedProfile.name || '')
+                
+                console.log('[LAYOUT] ✅ Role and name state updated', {
+                    userId,
+                    newRole,
+                    newName: typedProfile.name || '',
+                    timestamp: new Date().toISOString()
+                })
             } else {
                 console.log('[LAYOUT] ⚠️ No profile found in users table, using default USER role', {
                     userId,
                     timestamp: new Date().toISOString()
                 })
-                if (userRole === null) setUserRole('USER')
+                // CRITICAL: Always set role, even if profile is null
+                setUserRole('USER')
+                setUserName('')
             }
         } catch (err) {
             console.error('[LAYOUT] ❌ Unexpected profile error:', err)
@@ -338,17 +351,56 @@ export default function DashboardLayout({
                 sessionInitialized = true
                 setSession(newSession)
                 
-                // Fetch profile to get role
-                await fetchProfile(newSession.user.id)
+                // CRITICAL: Set a timeout for profile fetch to prevent infinite loader
+                // If profile fetch takes more than 5 seconds, set default role and continue
+                let profileFetchCompleted = false
+                const profileFetchTimeout = setTimeout(() => {
+                    if (!profileFetchCompleted) {
+                        console.warn('[LAYOUT] ⏰ Profile fetch timeout - setting default USER role', {
+                            userId: newSession.user.id,
+                            timestamp: new Date().toISOString()
+                        })
+                        setUserRole('USER')
+                        setLoading(false)
+                        clearTimeout(timeout)
+                        profileFetchCompleted = true
+                    }
+                }, 5000)
                 
-                // Set loading false - we have the session now
+                // Fetch profile to get role
+                // CRITICAL: Use try-catch to ensure loading is set even if profile fetch fails
+                try {
+                    await fetchProfile(newSession.user.id)
+                    profileFetchCompleted = true
+                    clearTimeout(profileFetchTimeout) // Clear timeout if fetch completes
+                    console.log('[LAYOUT] ✅ Profile fetch completed', {
+                        userId: newSession.user.id,
+                        timestamp: new Date().toISOString()
+                    })
+                } catch (profileError) {
+                    profileFetchCompleted = true
+                    clearTimeout(profileFetchTimeout) // Clear timeout on error
+                    console.error('[LAYOUT] ❌ Profile fetch failed in onAuthStateChange', {
+                        error: profileError,
+                        userId: newSession.user.id,
+                        timestamp: new Date().toISOString()
+                    })
+                    // CRITICAL: Always set a role, even on error
+                    // fetchProfile should have set it, but ensure it's set here too
+                    console.log('[LAYOUT] ⚠️ Setting default role USER due to profile fetch failure')
+                    setUserRole('USER')
+                }
+                
+                // CRITICAL: Always set loading false after profile fetch (success or failure)
+                // We have the session, so we can render even if role defaults to USER
+                // fetchProfile always sets a role (either from DB or default USER)
+                // Don't check userRole here - React state updates are async
                 setLoading(false)
                 clearTimeout(timeout)
                 
                 console.log('[LAYOUT] ✅ Auth state change complete', {
                     event,
                     userId: newSession.user.id,
-                    userRole,
                     timestamp: new Date().toISOString()
                 })
             } else if (event === 'SIGNED_OUT') {
