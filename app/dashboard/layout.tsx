@@ -248,19 +248,42 @@ export default function DashboardLayout({
                         <div className="absolute bottom-full left-0 w-full mb-3 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 animate-in slide-in-from-bottom-2 zoom-in-95 z-50">
                             <button
                                 onClick={async () => {
-                                    // Log logout button press and token for all users and conditions
-                                    console.log('🔴 Confirm Logout button pressed')
-                                    console.log('👤 User Info:', {
-                                        userId: session?.user?.id,
-                                        email: session?.user?.email,
-                                        role: userRole,
-                                        userName: userName
-                                    })
-                                    console.log('🔑 Access Token:', session?.access_token || 'No token found')
-                                    console.log('📋 Full Session:', session)
-                                    
-                                    await supabase.auth.signOut()
-                                    router.push('/login?message=Signed out successfully')
+                                    try {
+                                        // Log logout button press and token for all users and conditions
+                                        console.log('🔴 Confirm Logout button pressed')
+                                        console.log('👤 User Info:', {
+                                            userId: session?.user?.id,
+                                            email: session?.user?.email,
+                                            role: userRole,
+                                            userName: userName
+                                        })
+                                        console.log('🔑 Access Token:', session?.access_token || 'No token found')
+                                        console.log('📋 Full Session:', session)
+                                        
+                                        // Sign out from Supabase
+                                        console.log('🚪 Attempting to sign out...')
+                                        const { error: signOutError } = await supabase.auth.signOut()
+                                        
+                                        if (signOutError) {
+                                            console.error('❌ Sign out error:', signOutError)
+                                        } else {
+                                            console.log('✅ Sign out successful')
+                                        }
+                                        
+                                        // Force redirect using window.location for reliability
+                                        console.log('🔄 Redirecting to login page...')
+                                        window.location.href = '/login?message=Signed out successfully'
+                                        
+                                        // Fallback redirect using router
+                                        setTimeout(() => {
+                                            router.push('/login?message=Signed out successfully')
+                                            router.refresh()
+                                        }, 100)
+                                    } catch (error) {
+                                        console.error('❌ Logout error:', error)
+                                        // Even if there's an error, try to redirect
+                                        window.location.href = '/login?message=Signed out successfully'
+                                    }
                                 }}
                                 className="w-full p-4 flex items-center justify-between text-rose-600 hover:bg-rose-50 rounded-xl transition-colors group/logout"
                             >
