@@ -82,45 +82,60 @@ export default function DashboardPage() {
                     // Instead, we'll get role from props or context, but for now
                     // we'll fetch it once more but only if we don't have it
                     // Actually, let's fetch it but log that layout should have it
-                    console.log('[PAGE] 🔍 Fetching profile for stats (layout should already have it)', {
+                    console.log('[PAGE] 🔍 Fetching profile from users table for stats', {
                         userId: currentSession.user.id,
                         timestamp: new Date().toISOString()
                     })
 
-                    const { data: profileList } = await (supabase as any)
+                    // CRITICAL: Role MUST come from users table, NOT from auth
+                    // Fetch from users table to get role for determining stats queries
+                    const { data: profile, error: profileError } = await supabase
                         .from('users')
                         .select('role, name')
                         .eq('id', currentSession.user.id)
-                        .limit(1)
+                        .single() // Use single() for better type safety
 
-                    console.log('[PAGE] 📊 Profile fetch response', {
-                        hasData: !!profileList && profileList.length > 0,
-                        dataLength: profileList?.length || 0,
+                    console.log('[PAGE] 📊 Profile fetch response from users table', {
+                        hasData: !!profile,
+                        role: profile?.role, // From users.role column
+                        name: profile?.name,
+                        error: profileError?.message,
                         timestamp: new Date().toISOString()
                     })
 
                     let profileData = null
-                    if (profileList && profileList.length > 0) {
-                        profileData = profileList[0] as { role: string; name: string }
+                    if (profile && !profileError) {
+                        // CRITICAL: Role comes from users.role, validate it
+                        const validRole = (profile.role && ['ADMIN', 'MANAGER', 'USER'].includes(profile.role))
+                            ? profile.role
+                            : 'USER'
+                        
+                        profileData = { role: validRole, name: profile.name || '' }
+                        
                         // Only update if we don't already have it (to avoid flicker)
                         if (!userRole || userRole === 'USER') {
-                            setUserRole(profileData.role)
+                            setUserRole(validRole) // From users table, not auth
                         }
                         if (!userName) {
-                            setUserName(profileData.name)
+                            setUserName(profile.name || '')
                         }
-                        console.log('[PAGE] ✅ Profile loaded', {
-                            role: profileData.role,
-                            name: profileData.name,
+                        console.log('[PAGE] ✅ Profile loaded from users table', {
+                            role: validRole, // Confirmed: from users.role
+                            name: profile.name,
                             timestamp: new Date().toISOString()
                         })
                     } else {
                         if (!userName) {
                             setUserName(currentSession.user.email?.split('@')[0] || 'Member')
                         }
-                        console.log('[PAGE] ⚠️ No profile found, using email', {
+                        console.log('[PAGE] ⚠️ No profile found in users table, using email', {
+                            error: profileError?.message,
                             timestamp: new Date().toISOString()
                         })
+                        // Default to USER role if profile not found
+                        if (!userRole || userRole === 'USER') {
+                            profileData = { role: 'USER', name: '' }
+                        }
                     }
 
                     // 2. Prepare queries based on role

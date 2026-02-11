@@ -50,42 +50,60 @@ export default function DashboardLayout({
         })
 
         try {
-            const { data: profileList, error } = await supabase
+            // CRITICAL: Role MUST come from users table, NOT from auth
+            // The users table has the role field (ADMIN, MANAGER, USER)
+            // Auth only provides authentication, not authorization roles
+            const { data: profile, error } = await supabase
                 .from('users')
                 .select('role, name')
                 .eq('id', userId)
-                .limit(1)
+                .single() // Use single() for better type safety and error handling
 
-            console.log('[LAYOUT] 📊 Profile fetch response', {
+            console.log('[LAYOUT] 📊 Profile fetch response from users table', {
                 userId,
-                hasData: !!profileList && profileList.length > 0,
-                dataLength: profileList?.length || 0,
+                hasData: !!profile,
+                role: profile?.role,
+                name: profile?.name,
                 error: error?.message,
+                errorCode: error?.code,
                 timestamp: new Date().toISOString()
             })
 
             if (error) {
-                console.error('[LAYOUT] ❌ Profile fetch error:', error)
+                console.error('[LAYOUT] ❌ Profile fetch error from users table:', {
+                    error: error.message,
+                    code: error.code,
+                    details: error.details,
+                    hint: error.hint,
+                    userId,
+                    timestamp: new Date().toISOString()
+                })
+                
+                // If user doesn't exist in users table, that's a data issue
+                // But we'll default to USER role to prevent blocking
                 if (userRole === null) {
-                    console.log('[LAYOUT] ⚠️ Setting default role USER due to error')
+                    console.log('[LAYOUT] ⚠️ Setting default role USER due to error (user may not exist in users table)')
                     setUserRole('USER')
                 }
                 return
             }
 
-            if (profileList && profileList.length > 0) {
-                const profile = profileList[0] as { role?: string; name?: string }
-                const newRole = profile.role || 'USER'
-                console.log('[LAYOUT] ✅ Profile loaded', {
+            if (profile) {
+                // CRITICAL: Role comes from users.role, NOT from auth
+                const newRole = (profile.role && ['ADMIN', 'MANAGER', 'USER'].includes(profile.role)) 
+                    ? profile.role 
+                    : 'USER' // Fallback to USER if invalid role
+                
+                console.log('[LAYOUT] ✅ Profile loaded from users table', {
                     userId,
-                    role: newRole,
+                    role: newRole, // From users.role column
                     name: profile.name,
                     timestamp: new Date().toISOString()
                 })
                 setUserRole(newRole)
                 setUserName(profile.name || '')
             } else {
-                console.log('[LAYOUT] ⚠️ No profile found, using default USER role', {
+                console.log('[LAYOUT] ⚠️ No profile found in users table, using default USER role', {
                     userId,
                     timestamp: new Date().toISOString()
                 })
