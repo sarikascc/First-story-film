@@ -55,24 +55,51 @@ function LoginForm() {
 
             console.log('✅ Login successful, user:', data.user.email)
             
-            // Wait a bit for session to be properly set in cookies
-            await new Promise(resolve => setTimeout(resolve, 500))
+            // Wait for session to be properly set in cookies (longer wait for Vercel)
+            await new Promise(resolve => setTimeout(resolve, 1000))
             
-            // Verify session before redirect
-            const { data: { session } } = await supabase.auth.getSession()
+            // Verify session before redirect with retry logic
+            let session = null
+            let retries = 3
+            
+            while (retries > 0 && !session) {
+                const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession()
+                
+                if (sessionError) {
+                    console.error('❌ Session check error:', sessionError)
+                    if (retries > 1) {
+                        await new Promise(resolve => setTimeout(resolve, 500))
+                        retries--
+                        continue
+                    }
+                    break
+                }
+                
+                session = currentSession
+                
+                if (session) {
+                    break
+                }
+                
+                retries--
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 500))
+                }
+            }
+            
             console.log('🔍 Session check:', session?.user?.email)
             
             if (session) {
                 console.log('✅ Session confirmed, redirecting...')
                 console.log('🚀 Attempting navigation to /dashboard')
                 
-                // Force navigation with replace instead of push
-                window.location.href = '/dashboard'
+                // Use router.push with replace to avoid adding to history
+                // This ensures the middleware can properly read the session cookies
+                router.replace('/dashboard')
                 
-                // Fallback to router if window.location doesn't work
+                // Force a hard refresh after a short delay to ensure middleware runs
                 setTimeout(() => {
-                    router.push('/dashboard')
-                    router.refresh()
+                    window.location.href = '/dashboard'
                 }, 100)
             } else {
                 console.error('❌ Session not found after login')

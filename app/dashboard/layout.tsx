@@ -65,32 +65,76 @@ export default function DashboardLayout({
     useEffect(() => {
         let mounted = true
 
-        // 5-second fail-safe timeout
+        // 10-second fail-safe timeout (increased for Vercel serverless)
         const timeout = setTimeout(() => {
             if (mounted && loading) {
                 console.warn('DashboardLayout: Loading timeout - forcing render');
                 setLoading(false);
                 if (userRole === null) setUserRole('USER');
             }
-        }, 5000);
+        }, 10000);
 
         const init = async () => {
             try {
-                const { data: { session: currentSession } } = await supabase.auth.getSession()
+                // Retry logic for session retrieval (helps with Vercel serverless cold starts)
+                let currentSession = null
+                let retries = 3
+                
+                while (retries > 0 && !currentSession && mounted) {
+                    try {
+                        const { data, error } = await supabase.auth.getSession()
+                        
+                        if (error) {
+                            console.error('Layout: Session error:', error)
+                            // If it's a token error, wait a bit and retry
+                            if (error.message?.toLowerCase().includes('token') && retries > 1) {
+                                await new Promise(resolve => setTimeout(resolve, 500))
+                                retries--
+                                continue
+                            }
+                            // For other errors, break and redirect
+                            break
+                        }
+                        
+                        currentSession = data.session
+                        
+                        if (currentSession?.user) {
+                            break
+                        }
+                        
+                        retries--
+                        if (retries > 0) {
+                            // Wait before retry
+                            await new Promise(resolve => setTimeout(resolve, 500))
+                        }
+                    } catch (err) {
+                        console.error('Layout: Session retrieval error:', err)
+                        retries--
+                        if (retries > 0) {
+                            await new Promise(resolve => setTimeout(resolve, 500))
+                        }
+                    }
+                }
 
                 if (mounted) {
                     if (currentSession?.user) {
                         setSession(currentSession)
                         await fetchProfile(currentSession.user.id)
                     } else {
-                        // Not logged in
+                        // Not logged in - redirect to login
+                        console.log('⚠️ No session found, redirecting to login')
                         setLoading(false)
                         clearTimeout(timeout)
+                        router.push('/login')
                         return
                     }
                 }
             } catch (error) {
                 console.error('Layout: Init error:', error)
+                if (mounted) {
+                    // On error, redirect to login for safety
+                    router.push('/login')
+                }
             } finally {
                 if (mounted) {
                     setLoading(false)
