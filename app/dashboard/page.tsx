@@ -95,33 +95,37 @@ export default function DashboardPage() {
                         .eq('id', currentSession.user.id)
                         .single() // Use single() for better type safety
 
+                    // Type assertion for partial select result
+                    type ProfileResult = { role: string; name: string } | null
+                    const typedProfile = profile as ProfileResult
+
                     console.log('[PAGE] 📊 Profile fetch response from users table', {
-                        hasData: !!profile,
-                        role: profile?.role, // From users.role column
-                        name: profile?.name,
+                        hasData: !!typedProfile,
+                        role: typedProfile?.role, // From users.role column
+                        name: typedProfile?.name,
                         error: profileError?.message,
                         timestamp: new Date().toISOString()
                     })
 
                     let profileData = null
-                    if (profile && !profileError) {
+                    if (typedProfile && !profileError) {
                         // CRITICAL: Role comes from users.role, validate it
-                        const validRole = (profile.role && ['ADMIN', 'MANAGER', 'USER'].includes(profile.role))
-                            ? profile.role
+                        const validRole = (typedProfile.role && ['ADMIN', 'MANAGER', 'USER'].includes(typedProfile.role))
+                            ? typedProfile.role
                             : 'USER'
                         
-                        profileData = { role: validRole, name: profile.name || '' }
+                        profileData = { role: validRole, name: typedProfile.name || '' }
                         
                         // Only update if we don't already have it (to avoid flicker)
                         if (!userRole || userRole === 'USER') {
                             setUserRole(validRole) // From users table, not auth
                         }
                         if (!userName) {
-                            setUserName(profile.name || '')
+                            setUserName(typedProfile.name || '')
                         }
                         console.log('[PAGE] ✅ Profile loaded from users table', {
                             role: validRole, // Confirmed: from users.role
-                            name: profile.name,
+                            name: typedProfile.name,
                             timestamp: new Date().toISOString()
                         })
                     } else {

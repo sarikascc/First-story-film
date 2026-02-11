@@ -59,11 +59,15 @@ export default function DashboardLayout({
                 .eq('id', userId)
                 .single() // Use single() for better type safety and error handling
 
+            // Type assertion for partial select result
+            type ProfileResult = { role: string; name: string } | null
+            const typedProfile = profile as ProfileResult
+
             console.log('[LAYOUT] 📊 Profile fetch response from users table', {
                 userId,
-                hasData: !!profile,
-                role: profile?.role,
-                name: profile?.name,
+                hasData: !!typedProfile,
+                role: typedProfile?.role,
+                name: typedProfile?.name,
                 error: error?.message,
                 errorCode: error?.code,
                 timestamp: new Date().toISOString()
@@ -88,20 +92,20 @@ export default function DashboardLayout({
                 return
             }
 
-            if (profile) {
+            if (typedProfile) {
                 // CRITICAL: Role comes from users.role, NOT from auth
-                const newRole = (profile.role && ['ADMIN', 'MANAGER', 'USER'].includes(profile.role)) 
-                    ? profile.role 
+                const newRole = (typedProfile.role && ['ADMIN', 'MANAGER', 'USER'].includes(typedProfile.role)) 
+                    ? typedProfile.role 
                     : 'USER' // Fallback to USER if invalid role
                 
                 console.log('[LAYOUT] ✅ Profile loaded from users table', {
                     userId,
                     role: newRole, // From users.role column
-                    name: profile.name,
+                    name: typedProfile.name,
                     timestamp: new Date().toISOString()
                 })
                 setUserRole(newRole)
-                setUserName(profile.name || '')
+                setUserName(typedProfile.name || '')
             } else {
                 console.log('[LAYOUT] ⚠️ No profile found in users table, using default USER role', {
                     userId,
