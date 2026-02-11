@@ -93,14 +93,9 @@ function LoginForm() {
                 console.log('✅ Session confirmed, redirecting...')
                 console.log('🚀 Attempting navigation to /dashboard')
                 
-                // Use router.push with replace to avoid adding to history
-                // This ensures the middleware can properly read the session cookies
+                // Use router.replace to avoid adding to history
+                // The middleware will handle the redirect and session validation
                 router.replace('/dashboard')
-                
-                // Force a hard refresh after a short delay to ensure middleware runs
-                setTimeout(() => {
-                    window.location.href = '/dashboard'
-                }, 100)
             } else {
                 console.error('❌ Session not found after login')
                 setError('Login succeeded but session not created. Please try again.')

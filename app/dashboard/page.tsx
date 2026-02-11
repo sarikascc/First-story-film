@@ -44,6 +44,7 @@ export default function DashboardPage() {
 
         const init = async () => {
             try {
+                // Session is already validated by layout, but we still need it for user ID
                 const { data: { session } } = await supabase.auth.getSession()
                 if (!mounted) return
                 setSession(session)
