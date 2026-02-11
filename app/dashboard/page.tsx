@@ -46,15 +46,18 @@ export default function DashboardPage() {
             timestamp: new Date().toISOString()
         })
 
+        // CRITICAL FIX: Page should wait for layout to provide session
+        // Don't use aggressive timeout - layout handles session management
         const timeout = setTimeout(() => {
             if (mounted && loading) {
-                console.warn('[PAGE] ⏰ Loading timeout', {
+                console.warn('[PAGE] ⏰ Loading timeout (but layout may still be loading)', {
                     renderCount,
                     timestamp: new Date().toISOString()
                 })
-                setLoading(false)
+                // Don't force loading false - layout controls session state
+                // Just log the warning
             }
-        }, 5000)
+        }, 10000) // Longer timeout since layout handles session
 
         const init = async () => {
             try {
@@ -63,18 +66,22 @@ export default function DashboardPage() {
                     timestamp: new Date().toISOString()
                 })
 
-                // CRITICAL FIX: Session is already validated by layout
-                // We just need it for user ID, no need to fetch profile again
-                // The layout already has the role, but we need it here for stats
-                const { data: { session: currentSession } } = await supabase.auth.getSession()
+                // CRITICAL FIX: Get session for stats, but don't treat null as error
+                // Layout is the source of truth for session - if layout rendered this page,
+                // session should exist. But getSession() might return null temporarily.
+                const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession()
                 
-                console.log('[PAGE] 📊 Session check', {
+                console.log('[PAGE] 📊 Session check (for stats only)', {
                     hasSession: !!currentSession,
                     userId: currentSession?.user?.id,
+                    error: sessionError?.message,
                     timestamp: new Date().toISOString()
                 })
 
                 if (!mounted) return
+                
+                // Set session for stats, but don't fail if null
+                // Layout controls whether we should be here
                 setSession(currentSession)
 
                 if (currentSession?.user?.id) {
@@ -192,14 +199,13 @@ export default function DashboardPage() {
                         })
                     }
                 } else {
-                    console.log('[PAGE] ⚠️ No session found', {
+                    console.log('[PAGE] ⚠️ No session found for stats', {
                         timestamp: new Date().toISOString()
                     })
-                    // CRITICAL FIX: Set loading to false even if no session
-                    // This prevents infinite loader
-                    if (mounted) {
-                        setLoading(false)
-                    }
+                    // CRITICAL FIX: Don't treat this as error
+                    // Layout controls session - if we're here, layout allowed it
+                    // Session might just not be available yet for stats
+                    // Don't set loading false - let layout control that
                 }
             } catch (err) {
                 console.error('[PAGE] ❌ Unexpected error in init:', err)
@@ -228,10 +234,10 @@ export default function DashboardPage() {
         }
     }, [])
 
-    // CRITICAL FIX: Show loader if we're loading OR if we have session but role is still default
-    // This prevents flicker when role is being fetched
-    // Note: userRole starts as 'USER', so we check if we're still in initial loading state
-    const isLoading = loading || (session && loading) // Keep it simple - if loading is true, show loader
+    // CRITICAL FIX: Page should trust layout's session management
+    // If layout rendered this page, we should render content
+    // Don't return null based on page's own session check
+    const isLoading = loading
     
     console.log('[PAGE] 🎨 Render check', {
         loading,
@@ -242,10 +248,10 @@ export default function DashboardPage() {
         timestamp: new Date().toISOString()
     })
 
-    if (!session && !loading) {
-        console.log('[PAGE] ⚠️ No session and not loading - returning null')
-        return null
-    }
+    // CRITICAL FIX: Don't return null based on page's session state
+    // Layout controls whether we should be here - if layout rendered us, render content
+    // Only return null if we're explicitly in an error state
+    // Layout will handle redirects if needed
 
     const isAdmin = userRole === 'ADMIN'
 

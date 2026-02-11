@@ -126,6 +126,7 @@ export default function DashboardLayout({
         let mounted = true
         let renderCount = 0
         renderCount++
+        let sessionInitialized = false // Track if session was set by onAuthStateChange
 
         console.log('[LAYOUT] 🚀 useEffect triggered', {
             renderCount,
@@ -135,104 +136,78 @@ export default function DashboardLayout({
             timestamp: new Date().toISOString()
         })
 
-        // 10-second fail-safe timeout (increased for Vercel serverless)
+        // CRITICAL FIX: Only use timeout as absolute last resort
+        // Don't force false states if onAuthStateChange is handling it
         const timeout = setTimeout(() => {
-            if (mounted && loading) {
-                console.warn('[LAYOUT] ⏰ Loading timeout - forcing render', {
+            if (mounted && loading && !sessionInitialized) {
+                console.warn('[LAYOUT] ⏰ Loading timeout - no session initialized yet', {
                     renderCount,
+                    hasSession: !!session,
                     timestamp: new Date().toISOString()
                 });
-                setLoading(false);
-                if (userRole === null) {
-                    console.log('[LAYOUT] ⚠️ Setting default role USER due to timeout')
-                    setUserRole('USER');
+                // Only set loading false if we truly have no session
+                // Don't override if onAuthStateChange is working
+                if (!session) {
+                    setLoading(false);
+                    if (userRole === null) {
+                        console.log('[LAYOUT] ⚠️ Setting default role USER due to timeout (no session)')
+                        setUserRole('USER');
+                    }
                 }
             }
-        }, 10000);
+        }, 15000); // Increased timeout since onAuthStateChange should handle it
 
         const init = async () => {
             try {
-                console.log('[LAYOUT] 🔄 Init started', {
+                console.log('[LAYOUT] 🔄 Init started (for page refresh scenario)', {
                     renderCount,
+                    hasExistingSession: !!session,
                     timestamp: new Date().toISOString()
                 })
 
-                // CRITICAL FIX: Reduce retries - middleware already validated session
-                // If we're here, middleware passed, so session should be available
-                let currentSession = null
-                let retries = 2
-                
-                while (retries > 0 && !currentSession && mounted) {
-                    try {
-                        console.log('[LAYOUT] 🔍 Session check attempt', {
-                            attempt: 3 - retries,
-                            renderCount,
-                            timestamp: new Date().toISOString()
-                        })
-
-                        const { data, error } = await supabase.auth.getSession()
-                        
-                        console.log('[LAYOUT] 📊 Session check response', {
-                            attempt: 3 - retries,
-                            hasSession: !!data?.session,
-                            userId: data?.session?.user?.id,
-                            error: error?.message,
-                            timestamp: new Date().toISOString()
-                        })
-                        
-                        if (error) {
-                            console.error('[LAYOUT] ❌ Session error:', error)
-                            // If it's a token error, wait a bit and retry
-                            if (error.message?.toLowerCase().includes('token') && retries > 1) {
-                                await new Promise(resolve => setTimeout(resolve, 300))
-                                retries--
-                                continue
-                            }
-                            // For other errors, break and redirect
-                            break
-                        }
-                        
-                        currentSession = data.session
-                        
-                        if (currentSession?.user) {
-                            console.log('[LAYOUT] ✅ Session found', {
-                                userId: currentSession.user.id,
-                                email: currentSession.user.email,
-                                timestamp: new Date().toISOString()
-                            })
-                            break
-                        }
-                        
-                        retries--
-                        if (retries > 0) {
-                            // Wait before retry
-                            await new Promise(resolve => setTimeout(resolve, 300))
-                        }
-                    } catch (err) {
-                        console.error('[LAYOUT] ❌ Session retrieval error:', err)
-                        retries--
-                        if (retries > 0) {
-                            await new Promise(resolve => setTimeout(resolve, 300))
-                        }
+                // CRITICAL FIX: Only run init if we don't already have a session
+                // onAuthStateChange handles new logins, init() only for page refresh
+                if (session?.user) {
+                    console.log('[LAYOUT] ⏭️ Skipping init - session already exists (from onAuthStateChange)', {
+                        userId: session.user.id,
+                        timestamp: new Date().toISOString()
+                    })
+                    if (mounted) {
+                        setLoading(false)
+                        clearTimeout(timeout)
                     }
+                    return
                 }
 
+                // For page refresh: check session once
+                const { data, error } = await supabase.auth.getSession()
+                        
+                console.log('[LAYOUT] 📊 Session check (page refresh)', {
+                    hasSession: !!data?.session,
+                    userId: data?.session?.user?.id,
+                    error: error?.message,
+                    timestamp: new Date().toISOString()
+                })
+
                 if (mounted) {
-                    if (currentSession?.user) {
-                        console.log('[LAYOUT] ✅ Setting session and fetching profile', {
-                            userId: currentSession.user.id,
+                    if (data?.session?.user) {
+                        console.log('[LAYOUT] ✅ Session found (page refresh), setting session and fetching profile', {
+                            userId: data.session.user.id,
                             timestamp: new Date().toISOString()
                         })
-                        setSession(currentSession)
-                        await fetchProfile(currentSession.user.id)
-                        console.log('[LAYOUT] ✅ Init complete', {
-                            userId: currentSession.user.id,
+                        sessionInitialized = true
+                        setSession(data.session)
+                        await fetchProfile(data.session.user.id)
+                        console.log('[LAYOUT] ✅ Init complete (page refresh)', {
+                            userId: data.session.user.id,
                             userRole,
                             timestamp: new Date().toISOString()
                         })
+                        setLoading(false)
+                        clearTimeout(timeout)
                     } else {
                         // Not logged in - redirect to login
-                        console.log('[LAYOUT] ⚠️ No session found, redirecting to login', {
+                        console.log('[LAYOUT] ⚠️ No session found (page refresh), redirecting to login', {
                             timestamp: new Date().toISOString()
                         })
                         setLoading(false)
@@ -244,23 +219,26 @@ export default function DashboardLayout({
             } catch (error) {
                 console.error('[LAYOUT] ❌ Init error:', error)
                 if (mounted) {
-                    // On error, redirect to login for safety
-                    router.push('/login')
-                }
-            } finally {
-                if (mounted) {
-                    console.log('[LAYOUT] 🏁 Init finally - setting loading to false', {
-                        renderCount,
-                        timestamp: new Date().toISOString()
-                    })
                     setLoading(false)
                     clearTimeout(timeout)
+                    // On error, redirect to login for safety
+                    router.push('/login')
                 }
             }
         }
 
-
-        init()
+        // Only run init if we don't have a session yet
+        // onAuthStateChange will handle new logins
+        if (!session) {
+            init()
+        } else {
+            console.log('[LAYOUT] ⏭️ Skipping init - session already exists', {
+                userId: session.user.id,
+                timestamp: new Date().toISOString()
+            })
+            setLoading(false)
+            clearTimeout(timeout)
+        }
 
         // CRITICAL: Refresh session when tab becomes visible again
         const handleVisibilityChange = async () => {
@@ -328,39 +306,62 @@ export default function DashboardLayout({
 
         document.addEventListener('visibilitychange', handleVisibilityChange)
 
+        // CRITICAL FIX: onAuthStateChange is the PRIMARY source of truth for new logins
+        // This fires immediately when signInWithPassword succeeds
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
             if (!mounted) return
 
-            console.log('[LAYOUT] 🔔 Auth state change', {
+            console.log('[LAYOUT] 🔔 Auth state change (PRIMARY SOURCE)', {
                 event,
                 hasNewSession: !!newSession,
                 newUserId: newSession?.user?.id,
                 timestamp: new Date().toISOString()
             })
 
-            // CRITICAL FIX: Use a ref-like pattern by checking current state
-            // We'll get the current session from the closure, but it's okay since
-            // this callback is only for auth events, not for reading stale state
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                console.log('[LAYOUT] ✅ Updating session from auth state change', {
+                if (!newSession?.user) {
+                    console.error('[LAYOUT] ❌ SIGNED_IN event but no user in session', {
+                        event,
+                        timestamp: new Date().toISOString()
+                    })
+                    return
+                }
+
+                console.log('[LAYOUT] ✅ Setting session from auth state change (PRIMARY)', {
                     event,
-                    userId: newSession?.user?.id,
+                    userId: newSession.user.id,
+                    email: newSession.user.email,
                     timestamp: new Date().toISOString()
                 })
+                
+                // CRITICAL: Set session immediately - this is the source of truth
+                sessionInitialized = true
                 setSession(newSession)
-                if (newSession?.user) {
-                    await fetchProfile(newSession.user.id)
-                }
+                
+                // Fetch profile to get role
+                await fetchProfile(newSession.user.id)
+                
+                // Set loading false - we have the session now
+                setLoading(false)
+                clearTimeout(timeout)
+                
+                console.log('[LAYOUT] ✅ Auth state change complete', {
+                    event,
+                    userId: newSession.user.id,
+                    userRole,
+                    timestamp: new Date().toISOString()
+                })
             } else if (event === 'SIGNED_OUT') {
                 console.log('[LAYOUT] 🚪 Signed out, clearing session', {
                     timestamp: new Date().toISOString()
                 })
+                sessionInitialized = false
                 setSession(null)
                 setUserRole(null)
+                setLoading(false)
+                clearTimeout(timeout)
                 router.push('/login')
             }
-
-            setLoading(false)
         })
 
         return () => {
