@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fira_Code, Fira_Sans } from "next/font/google";
+import { Fira_Code, Nunito } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -9,10 +9,10 @@ const firaCode = Fira_Code({
   weight: ["400", "500", "600", "700"],
 });
 
-const firaSans = Fira_Sans({
+const nunito = Nunito({
   subsets: ["latin"],
-  variable: "--font-fira-sans",
-  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-nunito",
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
 });
 
 export const metadata: Metadata = {
@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${firaCode.variable} ${firaSans.variable} font-sans antialiased bg-[#f8fafc] text-[#0f172a] selection:bg-[#6366f1]/20`}
+        className={`${firaCode.variable} ${nunito.variable} font-sans antialiased bg-[#f8fafc] text-[#0f172a] selection:bg-[#6366f1]/20`}
       >
         <Providers>{children}</Providers>
       </body>

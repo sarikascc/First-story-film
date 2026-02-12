@@ -276,7 +276,7 @@ export default function DashboardPage() {
                     <div className="card-aesthetic p-6 overflow-hidden group hover:bg-slate-50 transition-colors">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Total Jobs</p>
+                                <p className="text-[12px] text-slate-500 font-black uppercase tracking-widest mb-1">Total Jobs</p>
                                 <p className="text-3xl font-bold font-heading text-slate-900">{stats.totalJobs}</p>
                             </div>
                             <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
@@ -288,7 +288,7 @@ export default function DashboardPage() {
                     <div className="card-aesthetic p-6 group hover:bg-slate-50 transition-colors">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">In-Progress</p>
+                                <p className="text-[12px] text-slate-500 font-black uppercase tracking-widest mb-1">In-Progress</p>
                                 <p className="text-3xl font-bold font-heading text-slate-900">{stats.inProgress}</p>
                             </div>
                             <div className="p-3 bg-amber-50 rounded-2xl text-amber-600 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">
@@ -300,7 +300,7 @@ export default function DashboardPage() {
                     <div className="card-aesthetic p-6 group hover:bg-slate-50 transition-colors">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Completed</p>
+                                <p className="text-[12px] text-slate-500 font-black uppercase tracking-widest mb-1">Completed</p>
                                 <p className="text-3xl font-bold font-heading text-slate-900">{stats.completed}</p>
                             </div>
                             <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300">
@@ -313,7 +313,7 @@ export default function DashboardPage() {
                         <div className="card-aesthetic p-6 group hover:bg-slate-50 transition-colors">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Total Users</p>
+                                    <p className="text-[12px] text-slate-500 font-black uppercase tracking-widest mb-1">Total Users</p>
                                     <p className="text-3xl font-bold font-heading text-slate-900">{stats.totalUsers}</p>
                                 </div>
                                 <div className="p-3 bg-blue-50 rounded-2xl text-blue-600 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">

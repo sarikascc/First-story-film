@@ -27,13 +27,17 @@
 
   /* Typography */
   --font-heading: var(--font-fira-code);
-  --font-body: var(--font-fira-sans);
+  --font-body: var(--font-nunito);
+  
+  /* Font Families for Tailwind */
+  --font-family-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --font-family-mono: monospace, ui-monospace, 'Courier New', Courier, monospace;
 }
 
 @layer base {
   html {
-    font-size: 110%;
-    /* Increased base size to ~17.6px */
+    font-size: 115%;
+    /* Increased base size to ~18.4px */
   }
 
   body {
