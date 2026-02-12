@@ -282,7 +282,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                                             <p className="text-5xl font-black text-slate-900 tracking-tighter leading-none">{formatCurrency(job.amount)}</p>
                                         </div>
                                         <div className="text-right pb-1">
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Commission Cost</p>
+                                            <p className="text-[10px] font-black text-black uppercase tracking-widest mb-1">Commission Cost</p>
                                             <div className="inline-flex items-center px-3 py-1 bg-rose-50 text-rose-600 rounded-lg border border-rose-100 font-black text-lg">
                                                 -{formatCurrency(job.commission_amount)}
                                             </div>

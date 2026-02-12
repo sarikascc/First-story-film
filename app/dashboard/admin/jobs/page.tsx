@@ -769,10 +769,10 @@ export default function JobsPage() {
                                         {(selectedJob && showEditModal) ? <Edit2 size={24} /> : <Plus size={24} />}
                                     </div>
                                     <div>
-                                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-none mb-1">
+                                        <h2 className="text-xl font-black text-black uppercase tracking-tight leading-none mb-1">
                                             {(selectedJob && showEditModal) ? 'Edit Production' : 'Post New Production'}
                                         </h2>
-                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Master Workflow Management</p>
+                                        <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Master Workflow Management</p>
                                     </div>
                                 </div>
                                 <button onClick={closeModal} className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-100 rounded-xl transition-all shadow-sm">
@@ -815,10 +815,10 @@ export default function JobsPage() {
                                                 placeholder={selectedService ? 'Select Assigned User...' : 'Choose Service First'} />
 
                                             <div>
-                                                <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block ml-1">Job Due Date <span className="text-rose-500">*</span></label>
+                                                <label className="label text-[12px] uppercase font-black tracking-widest text-black mb-2 block ml-1">Job Due Date <span className="text-rose-500">*</span></label>
                                                 <input
                                                     type="datetime-local"
-                                                    className="w-full h-8 bg-white border-2 border-slate-100 rounded-full px-4 text-[10px] font-black uppercase tracking-widest text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-50 transition-all duration-300"
+                                                    className="w-full h-8 bg-white border-2 border-slate-100 rounded-full px-4 text-[12px] font-black uppercase tracking-widest text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-50 transition-all duration-300"
                                                     value={formData.job_due_date}
                                                     onChange={e => setFormData({ ...formData, job_due_date: e.target.value })}
                                                     required />
@@ -837,9 +837,9 @@ export default function JobsPage() {
                                         </div>
 
                                         <div>
-                                            <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Work Description <span className="text-rose-500">*</span></label>
+                                            <label className="label text-[12px] uppercase font-black tracking-widest text-black mb-2 block">Work Description <span className="text-rose-500">*</span></label>
                                             <textarea
-                                                className="input-aesthetic min-h-[100px] resize-none text-sm p-4"
+                                                className="input-aesthetic min-h-[100px] resize-none text-base p-4"
                                                 placeholder="Provide clear instructions for the staff..."
                                                 value={formData.description}
                                                 onChange={e => setFormData({ ...formData, description: e.target.value })}
@@ -848,18 +848,18 @@ export default function JobsPage() {
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                             <div>
-                                                <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Source location</label>
+                                                <label className="label text-[12px] uppercase font-black tracking-widest text-black mb-2 block">Source location</label>
                                                 <textarea
-                                                    className="input-aesthetic min-h-[80px] py-3 px-4 text-sm resize-none"
+                                                    className="input-aesthetic min-h-[80px] py-3 px-4 text-base resize-none"
                                                     placeholder="Source location details..."
                                                     value={formData.data_location}
                                                     onChange={e => setFormData({ ...formData, data_location: e.target.value })} />
                                             </div>
 
                                             <div>
-                                                <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Final destination</label>
+                                                <label className="label text-[12px] uppercase font-black tracking-widest text-black mb-2 block">Final destination</label>
                                                 <textarea
-                                                    className="input-aesthetic min-h-[80px] py-3 px-4 text-sm resize-none"
+                                                    className="input-aesthetic min-h-[80px] py-3 px-4 text-base resize-none"
                                                     placeholder="Final destination details..."
                                                     value={formData.final_location}
                                                     onChange={e => setFormData({ ...formData, final_location: e.target.value })} />
@@ -868,7 +868,7 @@ export default function JobsPage() {
 
                                         <div className="pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
                                             <div>
-                                                <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Job Total Amount (Base) <span className="text-rose-500">*</span></label>
+                                                <label className="label text-[12px] uppercase font-black tracking-widest text-black mb-2 block">Job Total Amount (Base) <span className="text-rose-500">*</span></label>
                                                 <div className="relative">
                                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">₹</span>
                                                     <input
@@ -882,8 +882,8 @@ export default function JobsPage() {
                                                         min="0" />
                                                 </div>
                                                 <div className="mt-2 flex items-center justify-between px-2">
-                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Est. Commission</span>
-                                                    <span className="text-xs font-black text-indigo-600">{formatCurrency(calculateCommission(formData.amount, staffPercentage))}</span>
+                                                    <span className="text-[12px] font-black text-black uppercase tracking-widest">Est. Commission</span>
+                                                    <span className="text-sm font-black text-indigo-600">{formatCurrency(calculateCommission(formData.amount, staffPercentage))}</span>
                                                 </div>
                                             </div>
 

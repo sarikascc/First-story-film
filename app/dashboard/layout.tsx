@@ -294,10 +294,10 @@ export default function DashboardLayout({
 
     const adminNavItems = [
         { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+        { href: '/dashboard/admin/jobs', icon: ClipboardList, label: 'Jobs' },
+        { href: '/dashboard/admin/vendors', icon: Building2, label: 'Vendors' },
         { href: '/dashboard/admin/services', icon: Briefcase, label: 'Services' },
         { href: '/dashboard/admin/staff', icon: Users, label: 'Users' },
-        { href: '/dashboard/admin/vendors', icon: Building2, label: 'Vendors' },
-        { href: '/dashboard/admin/jobs', icon: ClipboardList, label: 'Jobs' },
     ]
 
     const managerNavItems = [

@@ -266,7 +266,7 @@ export default function ServicesPage() {
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
-                                <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Service Name</label>
+                                <label className="label text-[10px] uppercase font-black tracking-widest text-black mb-2 block">Service Name</label>
                                 <input
                                     type="text"
                                     value={serviceName}

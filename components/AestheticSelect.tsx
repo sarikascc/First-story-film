@@ -48,7 +48,7 @@ export default function AestheticSelect({
     return (
         <div className="relative w-full" ref={containerRef}>
             {label && (
-                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2 ml-1">
+                <label className="block text-[12px] font-black uppercase tracking-[0.2em] text-black mb-2 ml-1">
                     {label} {required && <span className="text-rose-500">*</span>}
                 </label>
             )}
@@ -66,7 +66,7 @@ export default function AestheticSelect({
                     !selectedOption && "text-slate-500"
                 )}
             >
-                <span className={cn("text-[9px] transition-all truncate font-black uppercase tracking-widest leading-none", selectedOption ? "text-slate-900" : "text-slate-500")}>
+                <span className={cn("text-[11px] transition-all truncate font-black uppercase tracking-widest leading-none", selectedOption ? "text-slate-900" : "text-slate-500")}>
                     {selectedOption ? selectedOption.name : placeholder}
                 </span>
                 <ChevronDown
@@ -81,9 +81,9 @@ export default function AestheticSelect({
             {/* CURVED DROPDOWN MENU */}
             {isOpen && (
                 <div className="absolute top-[calc(100%+4px)] left-0 w-full min-w-[160px] bg-white border border-slate-100 rounded-[1.25rem] shadow-2xl p-1.5 z-[100] animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="max-h-40 overflow-y-auto custom-scrollbar text-[10px]">
+                    <div className="max-h-40 overflow-y-auto custom-scrollbar text-[12px]">
                         {options.length === 0 ? (
-                            <div className="px-4 py-8 text-center text-slate-500 text-xs font-bold uppercase tracking-widest">
+                            <div className="px-4 py-8 text-center text-slate-500 text-sm font-bold uppercase tracking-widest">
                                 No options available
                             </div>
                         ) : (
@@ -97,7 +97,7 @@ export default function AestheticSelect({
                                             setIsOpen(false)
                                         }}
                                         className={cn(
-                                            "w-full px-3 py-2 rounded-xl text-left text-[10px] uppercase tracking-widest transition-all flex items-center justify-between group",
+                                            "w-full px-3 py-2 rounded-xl text-left text-[12px] uppercase tracking-widest transition-all flex items-center justify-between group",
                                             value === option.id
                                                 ? "bg-indigo-600 text-white font-black"
                                                 : "text-slate-600 hover:bg-slate-50 hover:text-indigo-600 font-bold"

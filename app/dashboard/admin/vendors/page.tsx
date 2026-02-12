@@ -386,7 +386,7 @@ export default function VendorsPage() {
                         </div>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Studio Name</label>
+                                <label className="label text-[10px] uppercase font-black tracking-widest text-black mb-2 block">Studio Name</label>
                                 <input
                                     type="text"
                                     required
@@ -396,7 +396,7 @@ export default function VendorsPage() {
                                     placeholder="e.g. Dream Wedding Films" />
                             </div>
                             <div>
-                                <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Contact Person</label>
+                                <label className="label text-[10px] uppercase font-black tracking-widest text-black mb-2 block">Contact Person</label>
                                 <input
                                     type="text"
                                     required
@@ -407,7 +407,7 @@ export default function VendorsPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Mobile Number</label>
+                                    <label className="label text-[10px] uppercase font-black tracking-widest text-black mb-2 block">Mobile Number</label>
                                     <input
                                         type="tel"
                                         required
@@ -422,7 +422,7 @@ export default function VendorsPage() {
                                         placeholder="10-digit number" />
                                 </div>
                                 <div>
-                                    <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Email Address</label>
+                                    <label className="label text-[10px] uppercase font-black tracking-widest text-black mb-2 block">Email Address</label>
                                     <input
                                         type="email"
                                         className="input-aesthetic h-11 px-4 text-sm"
@@ -432,7 +432,7 @@ export default function VendorsPage() {
                                 </div>
                             </div>
                             <div>
-                                <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Location</label>
+                                <label className="label text-[10px] uppercase font-black tracking-widest text-black mb-2 block">Location</label>
                                 <input
                                     type="text"
                                     className="input-aesthetic h-11 px-4 text-sm"
@@ -441,7 +441,7 @@ export default function VendorsPage() {
                                     placeholder="e.g. Mumbai, Maharashtra" />
                             </div>
                             <div>
-                                <label className="label text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2 block">Notes / Description (Optional)</label>
+                                <label className="label text-[10px] uppercase font-black tracking-widest text-black mb-2 block">Notes / Description (Optional)</label>
                                 <textarea
                                     className="input-aesthetic min-h-[60px] p-4 text-sm resize-none"
                                     value={formData.notes}

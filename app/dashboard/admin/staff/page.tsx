@@ -472,11 +472,11 @@ export default function StaffPage() {
                                     <div className="space-y-4">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <label className="text-[9px] font-bold text-slate-500 uppercase mb-1 block ml-2">Full Name</label>
+                                                <label className="text-[9px] font-bold text-black uppercase mb-1 block ml-2">Full Name</label>
                                                 <input type="text" className="input-aesthetic h-11 py-0 text-sm" placeholder="John Doe" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
                                             </div>
                                             <div>
-                                                <label className="text-[9px] font-bold text-slate-500 uppercase mb-1 block ml-2">Mobile Number</label>
+                                                <label className="text-[9px] font-bold text-black uppercase mb-1 block ml-2">Mobile Number</label>
                                                 <input
                                                     type="tel"
                                                     pattern="[0-9]{10}"
@@ -494,11 +494,11 @@ export default function StaffPage() {
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <label className="text-[9px] font-bold text-slate-500 uppercase mb-1 block ml-2">Email Address</label>
+                                                <label className="text-[9px] font-bold text-black uppercase mb-1 block ml-2">Email Address</label>
                                                 <input type="email" className="input-aesthetic h-11 py-0 text-sm" placeholder="john@example.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
                                             </div>
                                             <div>
-                                                <label className="text-[9px] font-bold text-slate-500 uppercase mb-1 block ml-2">Security Password</label>
+                                                <label className="text-[9px] font-bold text-black uppercase mb-1 block ml-2">Security Password</label>
                                                 {!showPasswordField && modalMode === 'edit' ? (
                                                     <button
                                                         type="button"
@@ -564,7 +564,7 @@ export default function StaffPage() {
                                                                     options={services} />
                                                             </div>
                                                             <div>
-                                                                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2 ml-1">Rate (%)</label>
+                                                                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-black mb-2 ml-1">Rate (%)</label>
                                                                 <div className="relative">
                                                                     <input type="number" step="0.01" className="input-aesthetic h-10 min-h-0 py-0 text-[10px] font-black uppercase tracking-widest bg-white pr-8 border-2 border-slate-100 rounded-full px-4" value={comm.percentage || ''} onFocus={e => e.target.select()} onChange={e => updateCommission(index, 'percentage', e.target.value)} required min="0" max="100" />
                                                                     <Percent size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400" />
