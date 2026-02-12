@@ -13,7 +13,6 @@ import {
     LogOut,
     Menu,
     X,
-    TrendingUp,
     Clock,
     CheckCircle2,
     Sparkles
@@ -322,35 +321,6 @@ export default function DashboardPage() {
                             </div>
                         </div>
                     )}
-                </div>
-
-                {/* Quick Actions Center */}
-                <div className="card-aesthetic p-10">
-                    <div className="flex items-center space-x-3 mb-8">
-                        <TrendingUp className="text-indigo-600" size={24} />
-                        <h3 className="text-2xl font-bold font-heading text-slate-900 uppercase tracking-tight">
-                            Quick Actions
-                        </h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {isAdmin ? (
-                            <>
-                                <Link href="/dashboard/admin/jobs/new" className="btn-aesthetic text-center">
-                                    Create New Job
-                                </Link>
-                                <Link href="/dashboard/admin/staff/new" className="btn-aesthetic text-center">
-                                    Add New User
-                                </Link>
-                                <Link href="/dashboard/admin/services" className="btn-aesthetic text-center">
-                                    Manage Services
-                                </Link>
-                            </>
-                        ) : (
-                            <Link href="/dashboard/staff/my-jobs" className="btn-aesthetic text-center">
-                                View My Jobs
-                            </Link>
-                        )}
-                    </div>
                 </div>
             </div>
         </main>

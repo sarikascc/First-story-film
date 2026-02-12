@@ -803,7 +803,7 @@ export default function JobsPage() {
                                                 placeholder="Select Service..." />
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-end">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-end">
                                             <AestheticSelect
                                                 label="Assign User"
                                                 heightClass="h-11"
@@ -823,17 +823,6 @@ export default function JobsPage() {
                                                     onChange={e => setFormData({ ...formData, job_due_date: e.target.value })}
                                                     required />
                                             </div>
-
-                                            <AestheticSelect
-                                                label="Job Status"
-                                                required
-                                                options={[
-                                                    { id: 'PENDING', name: 'PENDING' },
-                                                    { id: 'IN_PROGRESS', name: 'IN-PROGRESS' },
-                                                    { id: 'COMPLETED', name: 'COMPLETE' }
-                                                ]}
-                                                value={formData.status}
-                                                onChange={(val) => setFormData({ ...formData, status: val })} />
                                         </div>
 
                                         <div>
