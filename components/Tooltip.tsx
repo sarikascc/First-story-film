@@ -16,7 +16,7 @@ export default function Tooltip({ text, children, position = 'top' }: TooltipPro
             <div className={cn(
                 "absolute z-[100] invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-none",
                 "pointer-events-none whitespace-nowrap px-2.5 py-1.5",
-                "bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-xl",
+                "bg-slate-900 text-white text-[12px] font-bold rounded-lg shadow-xl",
                 position === 'top' && "bottom-full mb-2",
                 position === 'bottom' && "top-full mt-2",
                 position === 'left' && "right-full mr-2",

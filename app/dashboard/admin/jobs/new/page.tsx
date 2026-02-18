@@ -167,7 +167,7 @@ export default function NewJobPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] lg:ml-72 p-4 lg:p-8">
+        <div className="min-h-screen bg-[#f8fafc] lg:ml-[var(--sidebar-offset)] p-4 lg:p-8">
             <div className="max-w-6xl mx-auto">
                 <button
                     onClick={() => router.push('/dashboard/admin/jobs')}
@@ -191,7 +191,7 @@ export default function NewJobPage() {
                             <div className="space-y-5">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <AestheticSelect
-                                        label="Production Studio (Vendor)"
+                                        label="Vendor"
                                         heightClass="h-11"
                                         required
                                         options={vendors.map(v => ({ id: v.id, name: v.studio_name }))}
@@ -223,7 +223,7 @@ export default function NewJobPage() {
                                         <label className="label text-[12px] uppercase font-black tracking-widest text-black mb-2 block ml-1">Job Due Date <span className="text-rose-500">*</span></label>
                                         <input
                                             type="datetime-local"
-                                            className="w-full h-8 bg-white border-2 border-slate-100 rounded-full px-4 text-[12px] font-black uppercase tracking-widest text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-50 transition-all duration-300"
+                                            className="w-full h-8 bg-white border-2 border-slate-100 rounded-full px-4 text-[12px] font-black uppercase text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-50 transition-all duration-300"
                                             value={formData.job_due_date}
                                             onChange={e => setFormData({ ...formData, job_due_date: e.target.value })}
                                             required />

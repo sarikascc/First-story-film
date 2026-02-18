@@ -78,7 +78,7 @@ export default function StaffJobDetailPage({ params }: { params: Promise<{ id: s
 
     if (loading) return <Spinner />
     if (!job) return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-[#f1f5f9] lg:ml-72">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-[#f1f5f9] lg:ml-[var(--sidebar-offset)]">
             <p className="text-slate-400 font-black uppercase tracking-widest">Job not found in your roster</p>
             <button onClick={() => router.back()} className="mt-4 text-indigo-600 font-bold flex items-center">
                 <ArrowLeft size={16} className="mr-2" /> Go Back
@@ -87,7 +87,7 @@ export default function StaffJobDetailPage({ params }: { params: Promise<{ id: s
     )
 
     return (
-        <div className="min-h-screen bg-[#f1f5f9] text-slate-800 lg:ml-72">
+        <div className="min-h-screen bg-[#f1f5f9] text-slate-800 lg:ml-[var(--sidebar-offset)]">
             <div className="w-full px-4 py-8 lg:px-8 max-w-6xl mx-auto">
                 {/* Header / Back */}
                 <div className="mb-6 flex items-center justify-between">

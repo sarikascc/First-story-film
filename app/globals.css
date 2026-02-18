@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@layer theme {
+  /* Override Tailwind's default font families */
+  * {
+    --font-sans: var(--font-nunito);
+  }
+}
+
 @theme {
   /* Aesthetic Studio Light Design System */
   --color-studio-bg: #f1f5f9;
@@ -25,26 +32,46 @@
   --shadow-luxury: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
   --shadow-card: 0 4px 25px -2px rgba(0, 0, 0, 0.08);
 
-  /* Typography */
-  --font-heading: var(--font-fira-code);
+  /* Typography - Custom Variables */
+  --font-heading: var(--font-nunito);
   --font-body: var(--font-nunito);
-  
-  /* Font Families for Tailwind */
-  --font-family-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
-  --font-family-mono: monospace, ui-monospace, 'Courier New', Courier, monospace;
 }
 
 @layer base {
+  * {
+    font-family: var(--font-nunito) !important;
+  }
+
   html {
+    font-family: var(--font-nunito) !important;
     font-size: 115%;
-    /* Increased base size to ~18.4px */
   }
 
   body {
     background: #f1f5f9;
     color: #0f172a;
-    font-family: var(--font-body);
+    font-family: var(--font-nunito) !important;
     -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  span,
+  div,
+  a,
+  button,
+  input,
+  textarea,
+  select,
+  label,
+  th,
+  td {
+    font-family: var(--font-nunito) !important;
   }
 }
 
@@ -52,7 +79,7 @@
 @utility card-aesthetic {
   background: #ffffff;
   border: 1px solid #f1f5f9;
-  border-radius: 1.5rem;
+  border-radius: 0.8rem;
   padding: 1.75rem;
   box-shadow: var(--shadow-card);
 
@@ -62,7 +89,8 @@
   }
 }
 
-@layer components {}
+@layer components {
+}
 
 /* Luxury Light Buttons */
 @utility btn-aesthetic {
@@ -176,12 +204,14 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.875rem 1.25rem;
-  margin: 0.5rem 0;
+  padding: 0.75rem 0.875rem;
+  margin: 0.125rem 0;
   border-radius: 0.5rem;
   color: #4b5563;
   font-weight: 400;
   cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
 
   &:hover {
     background: #f9fafb;
@@ -221,7 +251,6 @@
 }
 
 @layer components {
-
   /* Aliases for compatibility */
   .card-static {
     @apply card-aesthetic;
@@ -242,14 +271,23 @@
   .label {
     @apply block text-sm font-normal text-gray-900 mb-2;
   }
+
+  /* Font utilities */
+  .font-heading {
+    font-family: var(--font-nunito) !important;
+  }
+
+  .font-body {
+    font-family: var(--font-nunito) !important;
+  }
 }
 
 @utility font-heading {
-  font-family: var(--font-heading);
+  font-family: var(--font-nunito) !important;
 }
 
 @utility font-body {
-  font-family: var(--font-body);
+  font-family: var(--font-nunito) !important;
 }
 
 @utility animate-slide-up {

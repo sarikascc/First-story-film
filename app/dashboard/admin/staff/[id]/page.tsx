@@ -1,495 +1,811 @@
-"use client"
+"use client";
 
-import { useState, useEffect, use } from "react"
-import { supabase } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, use } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 import {
-    User as UserIcon,
-    Mail,
-    Smartphone,
-    Calendar,
-    ArrowLeft,
-    Briefcase,
-    TrendingUp,
-    CheckCircle2,
-    Building2,
-    Percent,
-    ExternalLink,
-    X,
-    Eye,
-    AlertCircle,
-    Zap,
-    ClipboardList,
-    Clock,
-    MapPin,
-    FileText,
-    Edit2
-} from "lucide-react"
-import Spinner from "@/components/Spinner"
-import { formatCurrency, calculateCommission } from "@/lib/utils"
-import { User, Service, StaffServiceConfig, Job, Vendor } from "@/types/database"
+  User as UserIcon,
+  Mail,
+  Smartphone,
+  Calendar,
+  ArrowLeft,
+  CheckCircle2,
+  Building2,
+  Percent,
+  ExternalLink,
+  X,
+  Eye,
+  AlertCircle,
+  Zap,
+  ClipboardList,
+  Clock,
+  MapPin,
+  FileText,
+  Edit2,
+} from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { User, Service } from "@/types/database";
+import Badge from "@/components/Badge";
+import Tooltip from "@/components/Tooltip";
+import StaffForm from "@/components/StaffForm";
 
-export default function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params)
-    const router = useRouter()
-    const [loading, setLoading] = useState(true)
-    const [user, setUser] = useState<User | null>(null)
-    const [commissions, setCommissions] = useState<any[]>([])
-    const [jobs, setJobs] = useState<any[]>([])
-    const [stats, setStats] = useState({
-        totalJobs: 0,
-        completedJobs: 0,
-        totalEarnt: 0
-    })
-    const [selectedJob, setSelectedJob] = useState<any>(null)
-    const [showViewModal, setShowViewModal] = useState(false)
-    const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
+export default function UserDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [commissions, setCommissions] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showPasswordField, setShowPasswordField] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    mobile: "",
+    password: "",
+    role: "USER" as "ADMIN" | "MANAGER" | "USER",
+  });
+  const [editCommissions, setEditCommissions] = useState<
+    { serviceId: string; percentage: number }[]
+  >([]);
+  const [stats, setStats] = useState({
+    totalJobs: 0,
+    completedJobs: 0,
+    totalEarnt: 0,
+  });
+  const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
-    const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
-        setNotification({ message, type })
-        setTimeout(() => setNotification(null), 3000)
+  const showNotification = (
+    message: string,
+    type: "success" | "error" = "success",
+  ) => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleStatusUpdate = async (jobId: string, newStatus: string) => {
+    try {
+      const { error } = await (supabase.from("jobs") as any)
+        .update({
+          status: newStatus,
+          updated_at: new Date().toISOString(),
+          completed_at:
+            newStatus === "COMPLETED" ? new Date().toISOString() : undefined,
+          started_at:
+            newStatus === "IN_PROGRESS" ? new Date().toISOString() : undefined,
+        })
+        .eq("id", jobId);
+
+      if (error) throw error;
+
+      const statusLabels: { [key: string]: string } = {
+        PENDING: "Pending",
+        IN_PROGRESS: "In Progress",
+        COMPLETED: "Complete",
+      };
+      showNotification(statusLabels[newStatus] || newStatus);
+
+      // Update local state
+      setJobs((prev) =>
+        prev.map((j) => (j.id === jobId ? { ...j, status: newStatus } : j)),
+      );
+      if (selectedJob?.id === jobId) {
+        setSelectedJob((prev: any) =>
+          prev ? { ...prev, status: newStatus } : null,
+        );
+      }
+    } catch (error) {
+      console.error("Error updating status:", error);
+      showNotification("Failed to update status", "error");
     }
+  };
 
-    const handleStatusUpdate = async (jobId: string, newStatus: string) => {
-        try {
-            const { error } = await (supabase
-                .from('jobs') as any)
-                .update({
-                    status: newStatus,
-                    updated_at: new Date().toISOString(),
-                    completed_at: newStatus === 'COMPLETED' ? new Date().toISOString() : undefined,
-                    started_at: newStatus === 'IN_PROGRESS' ? new Date().toISOString() : undefined
-                })
-                .eq('id', jobId)
+  const fetchData = async () => {
+    try {
+      // Fetch User
+      const { data: userData, error: userError } = await (
+        supabase.from("users") as any
+      )
+        .select("*")
+        .eq("id", id)
+        .single();
 
-            if (error) throw error
+      if (userError) throw userError;
+      setUser(userData);
 
-            const statusLabels: { [key: string]: string } = {
-                'PENDING': 'Pending',
-                'IN_PROGRESS': 'In Progress',
-                'COMPLETED': 'Complete'
-            }
-            showNotification(statusLabels[newStatus] || newStatus)
+      // Fetch Commissions
+      const { data: commData, error: commError } = await (
+        supabase.from("staff_service_configs") as any
+      )
+        .select("*, services(name)")
+        .eq("staff_id", id);
 
-            // Update local state
-            setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: newStatus } : j))
-            if (selectedJob?.id === jobId) {
-                setSelectedJob((prev: any) => prev ? { ...prev, status: newStatus } : null)
-            }
-        } catch (error) {
-            console.error('Error updating status:', error)
-            showNotification('Failed to update status', 'error')
-        }
+      if (commError) throw commError;
+      setCommissions(commData || []);
+
+      // Fetch Jobs
+      const { data: jobsData, error: jobsError } = await (
+        supabase.from("jobs") as any
+      )
+        .select(
+          "*, services(name), vendors(id, studio_name, contact_person, mobile, email)",
+        )
+        .eq("staff_id", id)
+        .order("created_at", { ascending: false });
+
+      if (jobsError) throw jobsError;
+      setJobs(jobsData || []);
+
+      // Calculate Stats
+      const completed = (jobsData || []).filter(
+        (j: any) => j.status === "COMPLETED",
+      );
+      const totalComm = completed.reduce(
+        (sum: number, j: any) => sum + Number(j.commission_amount || 0),
+        0,
+      );
+
+      setStats({
+        totalJobs: (jobsData || []).length,
+        completedJobs: completed.length,
+        totalEarnt: totalComm,
+      });
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // Fetch User
-                const { data: userData, error: userError } = await (supabase
-                    .from('users') as any)
-                    .select('*')
-                    .eq('id', id)
-                    .single()
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
-                if (userError) throw userError
-                setUser(userData)
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("services")
+          .select("*")
+          .order("name");
+        if (!error && data) setServices(data);
+      } catch (error) {
+        console.error("Error fetching services:", error);
+      }
+    };
 
-                // Fetch Commissions
-                const { data: commData, error: commError } = await (supabase
-                    .from('staff_service_configs') as any)
-                    .select('*, services(name)')
-                    .eq('staff_id', id)
+    fetchServices();
+  }, []);
 
-                if (commError) throw commError
-                setCommissions(commData || [])
-
-                // Fetch Jobs
-                const { data: jobsData, error: jobsError } = await (supabase
-                    .from('jobs') as any)
-                    .select('*, services(name), vendors(id, studio_name, contact_person, mobile, email)')
-                    .eq('staff_id', id)
-                    .order('created_at', { ascending: false })
-
-                if (jobsError) throw jobsError
-                setJobs(jobsData || [])
-
-                // Calculate Stats
-                const completed = (jobsData || []).filter((j: any) => j.status === 'COMPLETED')
-                const totalComm = completed.reduce((sum: number, j: any) => sum + Number(j.commission_amount || 0), 0)
-
-                setStats({
-                    totalJobs: (jobsData || []).length,
-                    completedJobs: completed.length,
-                    totalEarnt: totalComm
-                })
-
-            } catch (error) {
-                console.error("Error fetching user details:", error)
-            } finally {
-                setLoading(false)
-            }
-        }
-
-        fetchData()
-    }, [id])
-
-    if (loading) return <Spinner className="py-24" />
-    if (!user) return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-[#f8fafc] lg:ml-72">
-            <p className="text-slate-500 font-black uppercase tracking-widest">User not found</p>
-            <button onClick={() => router.back()} className="mt-4 text-indigo-600 font-bold flex items-center">
-                <ArrowLeft size={16} className="mr-2" /> Go Back
-            </button>
-        </div>
-    )
-
+  if (loading)
     return (
-        <div className="min-h-screen bg-[#f8fafc] text-slate-800 lg:ml-72">
-            <div className="w-full px-4 py-8 lg:px-8">
-                {/* Back Button & Header */}
-                <div className="mb-8 flex items-center justify-between">
-                    <button
-                        onClick={() => router.back()}
-                        className="group flex items-center space-x-2 text-slate-500 hover:text-indigo-600 transition-colors"
-                    >
-                        <div className="w-8 h-8 rounded-full bg-white border border-slate-100 flex items-center justify-center group-hover:bg-indigo-50 group-hover:border-indigo-100 transition-all">
-                            <ArrowLeft size={14} />
-                        </div>
-                        <span className="text-[10px] uppercase font-black tracking-widest">Back to Users</span>
-                    </button>
+      <div className="min-h-screen flex items-center justify-center bg-[#f1f5f9] lg:ml-[var(--sidebar-offset)]">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        </div>
+      </div>
+    );
+  if (!user)
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f1f5f9] lg:ml-[var(--sidebar-offset)]">
+        <p className="text-gray-500 font-medium text-sm">User not found</p>
+        <button
+          onClick={() => router.back()}
+          className="mt-4 text-indigo-600 font-medium flex items-center text-sm hover:text-indigo-700"
+        >
+          <ArrowLeft size={16} className="mr-2" /> Go Back
+        </button>
+      </div>
+    );
 
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case "ADMIN":
+        return "rose";
+      case "MANAGER":
+        return "amber";
+      case "USER":
+      default:
+        return "indigo";
+    }
+  };
+
+  const formatRole = (role: string) => {
+    return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+  };
+
+  const getStatusColor = (status: string) => {
+    if (status === "COMPLETED") return "emerald";
+    if (status === "PENDING") return "amber";
+    return "indigo";
+  };
+
+  const getStatusLabel = (status: string) => {
+    if (status === "IN_PROGRESS") return "In Progress";
+    if (status === "COMPLETED") return "Complete";
+    return "Pending";
+  };
+
+  const handleOpenEditModal = () => {
+    setFormData({
+      name: user.name || "",
+      email: user.email || "",
+      mobile: user.mobile || "",
+      password: "",
+      role: (user.role || "USER") as "ADMIN" | "MANAGER" | "USER",
+    });
+    setEditCommissions(
+      (commissions || []).map((comm) => ({
+        serviceId: comm.service_id,
+        percentage: Number(comm.commission_percent ?? comm.percentage ?? 0),
+      })),
+    );
+    setShowPasswordField(false);
+    setShowEditModal(true);
+  };
+
+  const handleAddCommission = () => {
+    setEditCommissions([...editCommissions, { serviceId: "", percentage: 0 }]);
+  };
+
+  const handleRemoveCommission = (index: number) => {
+    const next = [...editCommissions];
+    next.splice(index, 1);
+    setEditCommissions(next);
+  };
+
+  const updateCommission = (
+    index: number,
+    field: string,
+    value: string | number,
+  ) => {
+    const next = [...editCommissions];
+    if (field === "serviceId") next[index].serviceId = value as string;
+    if (field === "percentage") next[index].percentage = Number(value);
+    setEditCommissions(next);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      const updateResponse = await fetch("/api/admin/update-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          name: formData.name,
+          email: formData.email,
+          mobile: formData.mobile,
+          role: formData.role,
+          password: formData.password || undefined,
+        }),
+      });
+
+      if (!updateResponse.ok) {
+        const result = await updateResponse.json();
+        throw new Error(result.error || "Failed to update user");
+      }
+
+      await supabase.from("staff_service_configs").delete().eq("staff_id", id);
+
+      if (formData.role === "USER" && editCommissions.length > 0) {
+        const validCommissions = editCommissions
+          .filter((c) => c.serviceId !== "")
+          .map((c) => ({
+            staff_id: id,
+            service_id: c.serviceId,
+            percentage: c.percentage,
+          }));
+
+        if (validCommissions.length > 0) {
+          const { error: commError } = await (
+            supabase.from("staff_service_configs") as any
+          ).insert(validCommissions);
+          if (commError) throw commError;
+        }
+      }
+
+      setShowEditModal(false);
+      showNotification("User updated successfully");
+      fetchData();
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      showNotification(
+        error.message || "Error occurred while updating user.",
+        "error",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#f1f5f9] text-slate-800 lg:ml-[var(--sidebar-offset)]">
+      <div className="w-full px-4 py-6 lg:px-6">
+        {/* Header Section */}
+        <div className="mb-2 space-y-2">
+          <button
+            onClick={() => router.back()}
+            className="group flex items-center space-x-2 text-gray-600 hover:text-indigo-600 transition-colors"
+          >
+            <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center group-hover:bg-indigo-50 group-hover:border-indigo-100 transition-all">
+              <ArrowLeft size={14} />
+            </div>
+            <span className="text-sm font-medium">Back to Staff</span>
+          </button>
+
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-2 flex-1">
+                <div className="w-8 h-8 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-center">
+                  <UserIcon size={18} className="text-indigo-600" />
+                </div>
+                <div className="flex-1 justify-center">
+                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <h1 className="text-2xl font-bold text-gray-900">
+                      {user.name}
+                    </h1>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Mail size={14} className="mr-2 text-gray-400" />
+                      <span>{user.email}</span>
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Smartphone size={14} className="mr-2 text-gray-400" />
+                      <span>{user.mobile || "Not provided"}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Badge color={getRoleColor(user.role) as any}>
+                        {formatRole(user.role)}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <Tooltip text="Edit Staff">
+                <button
+                  onClick={handleOpenEditModal}
+                  className="ml-4 w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shrink-0"
+                  title="Edit Staff"
+                >
+                  <Edit2 size={16} />
+                </button>
+              </Tooltip>
+            </div>
+          </div>
+        </div>
+
+        {/* Combined Information Card */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+          {/* Commission Settings Section */}
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+              <Percent size={14} className="mr-2 text-gray-500" />
+              Commission Settings
+            </h3>
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Service</th>
+                    <th className="px-4 py-3 w-32 font-semibold">Rate</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {commissions.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={2}
+                        className="px-4 py-8 text-center text-gray-500 italic"
+                      >
+                        No commission settings configured.
+                      </td>
+                    </tr>
+                  ) : (
+                    commissions.map((comm) => (
+                      <tr
+                        key={comm.id}
+                        className="hover:bg-gray-50/50 transition-colors"
+                      >
+                        <td className="px-4 py-3 font-medium text-gray-900">
+                          {comm.services?.name}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
+                            {comm.percentage}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Job History Section */}
+          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+            <h2 className="text-base font-semibold text-gray-900">
+              Job History
+            </h2>
+            <div className="bg-indigo-600 px-3 py-1 rounded-md text-white text-xs font-medium">
+              {jobs.length} Jobs
+            </div>
+          </div>
+
+          <div className="flex-1">
+            {jobs.length === 0 ? (
+              <div className="p-10 text-center">
+                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3 text-gray-400">
+                  <ClipboardList size={20} />
+                </div>
+                <p className="text-sm text-gray-500">
+                  No jobs assigned to this staff member yet.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto custom-scrollbar">
+                {jobs.map((job) => (
+                  <div
+                    key={job.id}
+                    onClick={() => {
+                      setSelectedJob({ ...job, staff: user });
+                      setShowViewModal(true);
+                    }}
+                    className="px-4 py-3 hover:bg-gray-50 transition-all cursor-pointer group flex items-center justify-between"
+                  >
                     <div className="flex items-center space-x-3">
-                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${user.role === 'ADMIN' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                            user.role === 'MANAGER' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                                'bg-indigo-50 text-indigo-600 border-indigo-100'
-                            }`}>
-                            {user.role}
-                        </span>
+                      <div
+                        className={`w-9 h-9 rounded-md flex items-center justify-center border transition-all ${
+                          job.status === "COMPLETED"
+                            ? "bg-emerald-50 border-emerald-200 text-emerald-600"
+                            : job.status === "PENDING"
+                              ? "bg-amber-50 border-amber-200 text-amber-600"
+                              : "bg-indigo-50 border-indigo-200 text-indigo-600"
+                        }`}
+                      >
+                        {job.status === "COMPLETED" ? (
+                          <CheckCircle2 size={16} />
+                        ) : job.status === "PENDING" ? (
+                          <Clock size={16} />
+                        ) : (
+                          <Zap size={16} />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2 mb-1">
+                          <p className="text-sm font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">
+                            {job.services?.name}
+                          </p>
+                          <Badge color={getStatusColor(job.status) as any}>
+                            {getStatusLabel(job.status)}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center space-x-3 text-xs text-gray-500">
+                          <div className="flex items-center">
+                            <Calendar size={12} className="mr-1" />
+                            {new Date(job.job_due_date).toLocaleDateString(
+                              "en-IN",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              },
+                            )}
+                          </div>
+                          <span className="text-gray-300">•</span>
+                          <div
+                            className="flex items-center hover:text-indigo-600 transition-colors cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (job.vendor_id)
+                                router.push(
+                                  `/dashboard/admin/vendors/view/${job.vendor_id}`,
+                                );
+                            }}
+                          >
+                            <Building2 size={12} className="mr-1" />
+                            {job.vendors?.studio_name || "Unknown Studio"}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                </div>
-
-                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl overflow-hidden mb-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100/50">
-                        {/* 1. Profile & Contact */}
-                        <div className="p-6 flex items-center justify-between gap-6">
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0">
-                                    <UserIcon size={20} className="text-white" />
-                                </div>
-                                <div className="overflow-hidden">
-                                    <h1 className="text-base font-black text-slate-900 uppercase tracking-tight leading-none truncate">{user.name}</h1>
-                                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1">{user.role}</p>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col space-y-1 pr-4 border-l border-slate-100 pl-6">
-                                <div className="flex items-center space-x-2 text-slate-500">
-                                    <Mail size={10} className="shrink-0" />
-                                    <span className="text-[10px] font-bold truncate">{user.email}</span>
-                                </div>
-                                <div className="flex items-center space-x-2 text-slate-500">
-                                    <Smartphone size={10} className="shrink-0" />
-                                    <span className="text-[10px] font-bold">{user.mobile || 'No Mobile'}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 2. Stats Summary */}
-                        <div className="p-6 grid grid-cols-3 gap-0 bg-slate-50/20">
-                            <div className="flex flex-col justify-center text-center">
-                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Jobs</p>
-                                <p className="text-xl font-black text-slate-900">{stats.totalJobs}</p>
-                            </div>
-                            <div className="flex flex-col justify-center text-center border-l border-slate-200/50">
-                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Done</p>
-                                <p className="text-xl font-black text-emerald-600 truncate">{stats.completedJobs}</p>
-                            </div>
-                            <div className="flex flex-col justify-center text-center border-l border-slate-200/50">
-                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Earnings</p>
-                                <p className="text-xl font-black text-indigo-600 truncate">₹{stats.totalEarnt.toLocaleString()}</p>
-                            </div>
-                        </div>
-
+                    <div className="flex items-center space-x-3">
+                      <div className="text-right mr-3 hidden sm:block">
+                        <p className="text-sm font-medium text-gray-900">
+                          {formatCurrency(job.amount)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Comm: {formatCurrency(job.commission_amount)}
+                        </p>
+                      </div>
+                      <Tooltip text="View Details" position="left">
+                        <button
+                          className="w-8 h-8 rounded-md bg-white border border-gray-200 flex items-center justify-center text-gray-400 group-hover:text-indigo-600 group-hover:border-indigo-200 group-hover:bg-indigo-50 transition-all"
+                          title="View Details"
+                        >
+                          <Eye size={14} />
+                        </button>
+                      </Tooltip>
                     </div>
-                </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
-                <div className="w-full">
-                    {/* Job History Table */}
-                    <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl overflow-hidden">
-                        <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                                    <ClipboardList size={14} />
-                                </div>
-                                <h2 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Job History</h2>
-                            </div>
-                        </div>
-
-                        <div className="overflow-x-auto max-h-[600px] overflow-y-auto custom-scrollbar">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50/30">
-                                        <th className="px-8 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 w-[45%]">Job / Studio</th>
-                                        <th className="px-8 py-4 text-center text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 w-[15%]">Due Date</th>
-                                        <th className="px-8 py-4 text-center text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 w-[20%]">Status</th>
-                                        <th className="px-8 py-4 text-right text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 w-[20%]">Earning</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {jobs.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={4} className="py-20 text-center">
-                                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">No history records found</p>
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        jobs.map((job: any) => (
-                                            <tr
-                                                key={job.id}
-                                                onClick={() => {
-                                                    setSelectedJob({ ...job, staff: user });
-                                                    setShowViewModal(true);
-                                                }}
-                                                className="hover:bg-slate-50/50 transition-colors group/row cursor-pointer"
-                                            >
-                                                <td className="px-8 py-5 align-middle">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[13px] font-black text-slate-900 uppercase tracking-tight leading-none mb-1.5">{job.services?.name}</span>
-                                                        <div
-                                                            className="flex items-center text-[10px] text-slate-400 font-black uppercase tracking-widest hover:text-indigo-600 cursor-pointer w-fit transition-colors"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                if (job.vendor_id) router.push(`/dashboard/admin/vendors/view/${job.vendor_id}`);
-                                                            }}
-                                                        >
-                                                            <Building2 size={12} className="mr-1.5" />
-                                                            {job.vendors?.studio_name}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-8 py-5 align-middle text-center">
-                                                    <div className="flex items-center justify-center text-[11px] font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">
-                                                        <Clock size={14} className="mr-2 text-indigo-300" />
-                                                        {new Date(job.job_due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                                    </div>
-                                                </td>
-                                                <td className="px-8 py-5 align-middle text-center">
-                                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${job.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                                        job.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                                                            'bg-indigo-50 text-indigo-600 border-indigo-100'
-                                                        }`}>
-                                                        {job.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-8 py-5 text-right align-middle">
-                                                    <p className="text-sm font-black text-slate-900 leading-none mb-1.5">
-                                                        ₹{Number(job.commission_amount || 0).toLocaleString('en-IN')}
-                                                    </p>
-                                                    <div className="flex items-center justify-end space-x-1.5">
-                                                        <span className="text-[8px] font-black text-indigo-500 bg-indigo-50/50 px-1.5 py-0.5 rounded-sm uppercase tracking-tighter border border-indigo-100">
-                                                            {Math.round((Number(job.commission_amount || 0) / Number(job.amount || 1)) * 100)}%
-                                                        </span>
-                                                        <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest">
-                                                            Base: ₹{Number(job.amount || 0).toLocaleString('en-IN')}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+      {/* View Modal */}
+      {showViewModal && selectedJob && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"
+            onClick={() => setShowViewModal(false)}
+          />
+          <div className="bg-white w-full max-w-4xl rounded-lg shadow-xl relative overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white">
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 bg-white border border-slate-200 rounded-lg flex items-center justify-center shadow-sm">
+                  <ClipboardList size={20} className="text-indigo-600" />
                 </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 leading-none mb-1">
+                    {selectedJob.services?.name}
+                  </h2>
+                  <div className="flex items-center text-xs text-gray-500">
+                    <Building2 size={12} className="mr-1.5 text-gray-400" />
+                    {selectedJob.vendors?.studio_name}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setShowViewModal(false)}
+                  className="w-8 h-8 flex items-center justify-center bg-white border border-gray-200 text-gray-500 hover:text-rose-600 hover:border-rose-200 rounded-md transition-all"
+                  title="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
-            {/* View Modal */}
-            {showViewModal && selectedJob && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowViewModal(false)} />
-                    <div className="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
-                        {/* Modal Header */}
-                        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                            <div className="flex items-center space-x-4">
-                                <div className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center shadow-sm">
-                                    <ClipboardList size={22} className="text-indigo-600" />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-none mb-1">{selectedJob.services?.name}</h2>
-                                    <div className="flex items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        <Building2 size={12} className="mr-1.5 text-indigo-400" />
-                                        {selectedJob.vendors?.studio_name}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex items-center space-x-3">
-                                <button
-                                    onClick={() => router.push(`/dashboard/admin/jobs`)}
-                                    className="px-5 h-9 bg-white border border-slate-200 hover:border-indigo-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center space-x-2 shadow-sm"
-                                >
-                                    <Edit2 size={14} className="text-slate-400 group-hover:text-indigo-600" />
-                                    <span>Edit Job</span>
-                                </button>
-                                <button onClick={() => setShowViewModal(false)} className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-100 rounded-xl transition-all shadow-sm">
-                                    <X size={20} />
-                                </button>
-                            </div>
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                {/* Left Side */}
+                <div className="lg:col-span-8 space-y-4">
+                  <div className="space-y-4">
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium text-gray-900">
+                        General Details
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md border border-gray-200">
+                          <div className="w-8 h-8 rounded-md bg-white border border-gray-200 flex items-center justify-center text-gray-500">
+                            <UserIcon size={16} />
+                          </div>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="text-xs font-medium text-gray-600">
+                              Assigned To
+                            </span>
+                            <span className="text-sm font-normal text-gray-900 truncate">
+                              {selectedJob.staff?.name || "Unassigned"}
+                            </span>
+                          </div>
                         </div>
 
-                        {/* Modal Body */}
-                        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                                {/* Left Side */}
-                                <div className="lg:col-span-8 space-y-8">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                        <div className="space-y-4">
-                                            <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest border-l-4 border-indigo-500 pl-4">General Details</h3>
-                                            <div className="space-y-3">
-                                                <div className="flex items-center space-x-4 p-4 bg-slate-50/80 rounded-2xl group transition-all hover:bg-slate-100 border border-slate-100/50">
-                                                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors shadow-sm">
-                                                        <UserIcon size={18} />
-                                                    </div>
-                                                    <div className="flex flex-col overflow-hidden">
-                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Assigned To</span>
-                                                        <span className="text-sm font-bold text-slate-900 truncate tracking-tight">{selectedJob.staff?.name || "Unassigned"}</span>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center space-x-4 p-4 bg-slate-50/80 rounded-2xl group transition-all hover:bg-slate-100 border border-slate-100/50">
-                                                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors shadow-sm">
-                                                        <Building2 size={18} />
-                                                    </div>
-                                                    <div className="flex flex-col overflow-hidden">
-                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Studio Contact</span>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm font-bold text-slate-900 truncate tracking-tight">{selectedJob.vendors?.contact_person || "N/A"}</span>
-                                                            {selectedJob.vendors?.email && <span className="text-[10px] text-slate-500 font-bold">{selectedJob.vendors?.email}</span>}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-4">
-                                            <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest border-l-4 border-emerald-500 pl-4">Location</h3>
-                                            <div className="space-y-3">
-                                                <div className="flex items-center space-x-4 p-4 bg-slate-50/80 rounded-2xl group transition-all hover:bg-slate-100 border border-slate-100/50">
-                                                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors shadow-sm">
-                                                        <MapPin size={18} />
-                                                    </div>
-                                                    <div className="flex flex-col overflow-hidden">
-                                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Source location</span>
-                                                        <span className="text-sm font-bold text-slate-900 truncate tracking-tight">{selectedJob.data_location || "Pending"}</span>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center space-x-4 p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100/20 group transition-all hover:bg-indigo-50">
-                                                    <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
-                                                        <ExternalLink size={18} />
-                                                    </div>
-                                                    <div className="flex flex-col overflow-hidden">
-                                                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Output location</span>
-                                                        <span className="text-sm font-bold text-indigo-900 truncate tracking-tight">{selectedJob.final_location || "Pending"}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center">
-                                            <FileText size={16} className="mr-2 text-indigo-500" />
-                                            Work Description
-                                        </h3>
-                                        <div className="p-6 bg-slate-50/80 rounded-2xl border border-slate-100/50 relative overflow-hidden group">
-                                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity whitespace-nowrap overflow-hidden">
-                                                <Briefcase size={80} />
-                                            </div>
-                                            <p className="text-base font-bold text-slate-800 leading-relaxed italic relative z-10 whitespace-pre-wrap">
-                                                {selectedJob.description || "No description provided."}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Right Side (Financials & Date) */}
-                                <div className="lg:col-span-4 space-y-6">
-                                    <div className="bg-slate-50/80 rounded-[2rem] border border-slate-100 p-7 space-y-3">
-                                        <div>
-                                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Production Status</h3>
-                                            <div className="space-y-2">
-                                                <button
-                                                    onClick={() => handleStatusUpdate(selectedJob.id, 'PENDING')}
-                                                    className={`w-full py-2.5 px-6 flex items-center justify-center rounded-xl transition-all space-x-2 border shadow-sm ${selectedJob.status === 'PENDING' ? 'bg-amber-400 text-white border-amber-500' : 'bg-white text-slate-500 border-slate-200'}`}
-                                                >
-                                                    <Clock size={14} />
-                                                    <span className="text-[10px] font-black uppercase tracking-wider">Pending</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => handleStatusUpdate(selectedJob.id, 'IN_PROGRESS')}
-                                                    className={`w-full py-2.5 px-6 flex items-center justify-center rounded-xl transition-all space-x-2 border shadow-sm ${selectedJob.status === 'IN_PROGRESS' ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-500 border-slate-200'}`}
-                                                >
-                                                    <Zap size={14} />
-                                                    <span className="text-[10px] font-black uppercase tracking-wider">In-Progress</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => handleStatusUpdate(selectedJob.id, 'COMPLETED')}
-                                                    className={`w-full py-2.5 px-6 flex items-center justify-center rounded-xl transition-all space-x-2 border shadow-sm ${selectedJob.status === 'COMPLETED' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-white text-slate-500 border-slate-200'}`}
-                                                >
-                                                    <CheckCircle2 size={14} />
-                                                    <span className="text-[10px] font-black uppercase tracking-wider">Complete</span>
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div className="pt-3 border-t border-slate-200/60">
-                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Production Deadline</p>
-                                            <div className="flex items-center space-x-2">
-                                                <Calendar className="text-rose-500" size={16} />
-                                                <p className="text-xl font-black text-rose-600 font-mono tracking-tight">
-                                                    {new Date(selectedJob.job_due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="pt-3 border-t border-slate-200/60 space-y-3">
-                                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2">Financial Summary</h3>
-                                            <div className="flex justify-between items-end">
-                                                <div>
-                                                    <p className="text-3xl font-black text-slate-900 tracking-tighter">{formatCurrency(selectedJob.amount)}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Staff Commission</p>
-                                                    <div className="inline-flex items-center px-2 py-0.5 bg-rose-50 text-rose-600 rounded-lg border border-rose-100 font-black text-sm">
-                                                        +{formatCurrency(selectedJob.commission_amount)}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="pt-3 border-t border-slate-200/40 flex justify-between items-center">
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Invoice</span>
-                                                <span className="text-lg font-black text-indigo-600">{formatCurrency(Number(selectedJob.amount || 0))}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                        <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md border border-gray-200">
+                          <div className="w-8 h-8 rounded-md bg-white border border-gray-200 flex items-center justify-center text-gray-500">
+                            <Building2 size={16} />
+                          </div>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="text-xs font-medium text-gray-600">
+                              Studio Contact
+                            </span>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-normal text-gray-900 truncate">
+                                {selectedJob.vendors?.contact_person || "N/A"}
+                              </span>
+                              {selectedJob.vendors?.email && (
+                                <span className="text-xs text-gray-600 leading-none mt-0.5">
+                                  {selectedJob.vendors?.email}
+                                </span>
+                              )}
                             </div>
+                          </div>
                         </div>
+                      </div>
                     </div>
-                </div>
-            )}
 
-            {/* Notification Toast */}
-            {notification && (
-                <div className={`fixed bottom-8 right-8 z-[100] flex items-center space-x-4 px-6 py-4 rounded-2xl shadow-2xl transition-all duration-500 animate-in slide-in-from-bottom-10 ${notification.type === 'success' ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-rose-600 text-white shadow-rose-200'}`}>
-                    {notification.type === 'success' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
-                    <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase tracking-widest opacity-70">{notification.type === 'success' ? 'System Success' : 'System Error'}</span>
-                        <span className="text-sm font-bold">{notification.message}</span>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                        <FileText size={14} className="mr-2 text-indigo-500" />
+                        Work Description
+                      </h3>
+                      <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
+                        <p className="text-sm font-normal text-gray-900 leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere">
+                          {selectedJob.description ||
+                            "No description provided."}
+                        </p>
+                      </div>
                     </div>
+
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium text-gray-900">
+                        Location
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-md border border-gray-200">
+                          <div className="w-8 h-8 rounded-md bg-white border border-gray-200 flex items-center justify-center text-gray-500 shrink-0">
+                            <MapPin size={16} />
+                          </div>
+                          <div className="flex flex-col min-w-0 pt-0.5">
+                            <span className="text-xs font-medium text-gray-600 mb-1">
+                              Job Data Location
+                            </span>
+                            <span className="text-sm font-normal text-gray-900 whitespace-pre-wrap leading-tight break-words overflow-wrap-anywhere">
+                              {selectedJob.data_location || "Pending"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start space-x-3 p-3 bg-indigo-50 rounded-md border border-indigo-200">
+                          <div className="w-8 h-8 rounded-md bg-white border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0">
+                            <ExternalLink size={16} />
+                          </div>
+                          <div className="flex flex-col min-w-0 pt-0.5">
+                            <span className="text-xs font-medium text-indigo-600 mb-1">
+                              Job Final Location
+                            </span>
+                            <span className="text-sm font-normal text-indigo-900 whitespace-pre-wrap leading-tight break-words overflow-wrap-anywhere">
+                              {selectedJob.final_location || "Pending"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-            )}
+
+                {/* Right Side (Financials & Date) */}
+                <div className="lg:col-span-4 space-y-4">
+                  <div className="bg-gray-50 rounded-md border border-gray-200 p-4 space-y-3">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-900 mb-3">
+                        Production Status
+                      </h3>
+                      <div className="space-y-2">
+                        <button
+                          onClick={() =>
+                            handleStatusUpdate(selectedJob.id, "PENDING")
+                          }
+                          className={`w-full py-2 px-4 flex items-center justify-center rounded-md transition-all space-x-2 border ${selectedJob.status === "PENDING" ? "bg-amber-400 text-white border-amber-500" : "bg-white text-gray-600 border-gray-300"}`}
+                        >
+                          <Clock size={12} />
+                          <span className="text-xs font-medium">Pending</span>
+                        </button>
+                        <button
+                          onClick={() =>
+                            handleStatusUpdate(selectedJob.id, "IN_PROGRESS")
+                          }
+                          className={`w-full py-2 px-4 flex items-center justify-center rounded-md transition-all space-x-2 border ${selectedJob.status === "IN_PROGRESS" ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-gray-600 border-gray-300"}`}
+                        >
+                          <Zap size={12} />
+                          <span className="text-xs font-medium">
+                            In-Progress
+                          </span>
+                        </button>
+                        <button
+                          onClick={() =>
+                            handleStatusUpdate(selectedJob.id, "COMPLETED")
+                          }
+                          className={`w-full py-2 px-4 flex items-center justify-center rounded-md transition-all space-x-2 border ${selectedJob.status === "COMPLETED" ? "bg-emerald-500 text-white border-emerald-600" : "bg-white text-gray-600 border-gray-300"}`}
+                        >
+                          <CheckCircle2 size={12} />
+                          <span className="text-xs font-medium">Complete</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-gray-200">
+                      <p className="text-xs font-medium text-gray-600 mb-1">
+                        Production Deadline
+                      </p>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="text-rose-500" size={14} />
+                        <p className="text-base font-medium text-rose-600">
+                          {new Date(
+                            selectedJob.job_due_date,
+                          ).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-gray-200 space-y-2">
+                      <h3 className="text-xs font-medium text-gray-600 mb-2">
+                        Financial Summary
+                      </h3>
+                      <div className="flex justify-between items-end">
+                        <div>
+                          <p className="text-xl font-medium text-gray-900">
+                            {formatCurrency(selectedJob.amount)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-medium text-gray-600 mb-0.5">
+                            Commission
+                          </p>
+                          <div className="inline-flex items-center px-2 py-0.5 bg-rose-50 text-rose-600 rounded-md border border-rose-100 text-xs font-medium">
+                            +{formatCurrency(selectedJob.commission_amount)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
+                        <span className="text-xs font-medium text-gray-600">
+                          Total Invoice
+                        </span>
+                        <span className="text-base font-semibold text-gray-900">
+                          {formatCurrency(Number(selectedJob.amount || 0))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-    )
+      )}
+
+      <StaffForm
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSubmit={handleUpdateUser}
+        modalMode="edit"
+        showPasswordField={showPasswordField}
+        onShowPasswordField={() => setShowPasswordField(true)}
+        formData={formData}
+        setFormData={setFormData}
+        services={services}
+        commissions={editCommissions}
+        onAddCommission={handleAddCommission}
+        onRemoveCommission={handleRemoveCommission}
+        onUpdateCommission={updateCommission}
+        submitting={submitting}
+      />
+
+      {/* Notification Toast */}
+      {notification && (
+        <div
+          className={`fixed bottom-8 right-8 z-[100] flex items-center space-x-3 px-4 py-3 rounded-lg shadow-lg transition-all duration-500 animate-in slide-in-from-bottom-10 ${notification.type === "success" ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"}`}
+        >
+          {notification.type === "success" ? (
+            <CheckCircle2 size={20} />
+          ) : (
+            <AlertCircle size={20} />
+          )}
+          <span className="text-sm font-medium">{notification.message}</span>
+        </div>
+      )}
+    </div>
+  );
 }

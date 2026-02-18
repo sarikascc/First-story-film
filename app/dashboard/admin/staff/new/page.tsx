@@ -140,7 +140,7 @@ export default function NewUserPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] lg:ml-72 p-4 lg:p-8">
+        <div className="min-h-screen bg-[#f8fafc] lg:ml-[var(--sidebar-offset)] p-4 lg:p-8">
             <div className="max-w-6xl mx-auto">
                 <button
                     onClick={() => router.back()}

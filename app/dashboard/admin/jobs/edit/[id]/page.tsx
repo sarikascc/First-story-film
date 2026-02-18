@@ -204,7 +204,7 @@ export default function EditJobPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] lg:ml-72 p-4 lg:p-8">
+        <div className="min-h-screen bg-[#f8fafc] lg:ml-[var(--sidebar-offset)] p-4 lg:p-8">
             <div className="max-w-6xl mx-auto">
                 <button
                     onClick={() => router.back()}
@@ -232,7 +232,7 @@ export default function EditJobPage() {
                             <div className="space-y-5">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                     <AestheticSelect
-                                        label="Production Studio (Vendor)"
+                                        label="Vendor"
                                         heightClass="h-11"
                                         required
                                         options={vendors.map(v => ({ id: v.id, name: v.studio_name }))}

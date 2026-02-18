@@ -103,7 +103,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
     if (loading) return <Spinner className="py-24" />
     if (!job) return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-[#f1f5f9] lg:ml-72">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-[#f1f5f9] lg:ml-[var(--sidebar-offset)]">
             <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Job assignment not found</p>
             <button onClick={() => router.back()} className="mt-4 text-indigo-600 font-bold flex items-center text-[10px] uppercase">
                 <ArrowLeft size={16} className="mr-2" /> Go Back
@@ -115,7 +115,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(amt || 0))
 
     return (
-        <div className="min-h-screen bg-[#f1f5f9] text-slate-800 lg:ml-72">
+        <div className="min-h-screen bg-[#f1f5f9] text-slate-800 lg:ml-[var(--sidebar-offset)]">
             <div className="w-full px-4 py-6 lg:px-8">
                 {/* Header Section */}
                 <div className="mb-6 space-y-4">
