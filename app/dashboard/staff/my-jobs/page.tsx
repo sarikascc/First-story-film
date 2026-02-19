@@ -22,11 +22,13 @@ import {
   Eye,
   ArrowLeft,
   MoreVertical,
+  User as UserIcon,
 } from "lucide-react";
 import { supabase } from "../../../../lib/supabase";
 import Pagination from "@/components/Pagination";
 import Table from "@/components/Table";
 import Tooltip from "@/components/Tooltip";
+import Badge from "@/components/Badge";
 
 export default function MyJobsPage() {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -104,7 +106,8 @@ export default function MyJobsPage() {
           `
                   *,
                   service:services(name),
-                  vendor:vendors(studio_name)
+                  vendor:vendors(studio_name, contact_person, mobile),
+                  staff:users!staff_id(name)
                 `,
           { count: "exact" },
         )
@@ -194,39 +197,51 @@ export default function MyJobsPage() {
   return (
     <div className="min-h-screen bg-[#f1f5f9] lg:ml-[var(--sidebar-offset)] relative">
       <div className="w-full px-2 py-4 lg:px-4 lg:py-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 px-2">
-          <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-100 flex items-center justify-center">
-              <Layout size={18} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 font-heading tracking-tight leading-tight uppercase flex items-center gap-4">
-                My Jobs
-                {totalCount > 0 && (
-                  <span className="text-[9px] bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full font-black tracking-widest">
-                    {totalCount} ACTIVE
-                  </span>
-                )}
-              </h1>
-            </div>
+        {/* Modern Header */}
+        <div className="mb-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4 px-2">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
+                <ClipboardList size={18} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-black">My Job</h1>
+              </div>
+            </div>{" "}
+            {totalCount > 0 && (
+              <div className="flex items-center space-x-2 ml-18">
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                  Total:
+                </span>
+                <Badge
+                  color="indigo"
+                  className="font-black tracking-wider uppercase"
+                >
+                  {totalCount} JOBS
+                </Badge>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xl overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-2xl overflow-hidden">
           {/* Toolbar Inside Card */}
-          <div className="px-6 py-4 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="relative w-full md:w-[320px] group">
+          <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="relative w-full md:w-[400px] group">
               <Search
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-600 transition-colors"
-                size={14}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors"
+                size={16}
               />
               <input
                 type="text"
-                placeholder="Search by studio or job description..."
+                placeholder="Search by studio, job type, or description..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 h-9 bg-slate-100 border border-slate-200 rounded-xl text-[11px] font-bold focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-500 shadow-inner"
+                className="w-full pl-12 pr-4 h-11 bg-white border-2 border-slate-200 rounded-xl text-sm font-medium focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 outline-none transition-all placeholder:text-slate-400 shadow-sm"
               />
+            </div>
+            <div className="text-xs text-slate-500 font-medium">
+              {paginatedJobs.length} of {totalCount} jobs
             </div>
           </div>
 
@@ -247,51 +262,54 @@ export default function MyJobsPage() {
             renderCell={(column, job) => {
               if (column.key === "studio") {
                 return (
-                  <div className="flex items-center text-[12px] font-bold text-slate-600">
-                    <div className="w-6 h-6 bg-slate-100 rounded-lg flex items-center justify-center mr-3 group-hover/row:bg-indigo-600 group-hover/row:text-white transition-colors">
-                      <Building2 size={13} />
+                  <div className="flex items-center text-sm font-bold text-slate-700">
+                    <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center mr-3 group-hover/row:bg-indigo-600 group-hover/row:text-white transition-all shadow-sm">
+                      <Building2 size={16} />
                     </div>
-                    {job.vendor?.studio_name || "Individual"}
+                    <span className="group-hover/row:text-indigo-600 transition-colors">
+                      {job.vendor?.studio_name || "Individual"}
+                    </span>
                   </div>
                 );
               }
               if (column.key === "job_type") {
                 return (
-                  <div className="font-bold text-slate-900 text-[14px] group-hover/row:text-indigo-600 transition-colors leading-tight">
+                  <div className="font-black text-slate-900 text-sm group-hover/row:text-indigo-600 transition-colors uppercase tracking-tight">
                     {job.service?.name || "Manual Project"}
                   </div>
                 );
               }
               if (column.key === "description") {
                 return (
-                  <div className="text-[12px] text-slate-500 font-bold leading-relaxed max-w-[250px] line-clamp-1 italic">
+                  <div className="text-sm text-slate-600 font-medium leading-relaxed max-w-[280px] line-clamp-2">
                     {job.description || "No description provided"}
                   </div>
                 );
               }
               if (column.key === "status") {
+                const statusColor =
+                  job.status === "COMPLETED"
+                    ? "emerald"
+                    : job.status === "PENDING"
+                      ? "amber"
+                      : "indigo";
                 return (
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-sm border ${
-                      job.status === "COMPLETED"
-                        ? "bg-emerald-500 text-white border-emerald-600"
-                        : job.status === "PENDING"
-                          ? "bg-amber-400 text-white border-amber-500"
-                          : "bg-indigo-600 text-white border-indigo-700"
-                    }`}
+                  <Badge
+                    color={statusColor as any}
+                    className="font-black uppercase tracking-wider"
                   >
                     {job.status === "IN_PROGRESS"
                       ? "IN-PROGRESS"
                       : job.status === "COMPLETED"
                         ? "COMPLETE"
                         : job.status}
-                  </span>
+                  </Badge>
                 );
               }
               if (column.key === "due_date") {
                 return (
-                  <div className="flex items-center text-[11px] text-slate-500 font-bold tracking-wider">
-                    <Calendar size={13} className="mr-2 text-indigo-300" />
+                  <div className="flex items-center text-xs text-slate-600 font-bold">
+                    <Calendar size={14} className="mr-2 text-indigo-400" />
                     {new Date(job.job_due_date).toLocaleDateString(undefined, {
                       month: "short",
                       day: "numeric",
@@ -303,16 +321,16 @@ export default function MyJobsPage() {
               if (column.key === "update") {
                 return (
                   <div
-                    className="flex items-center justify-center space-x-1.5"
+                    className="flex items-center justify-center space-x-2"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Tooltip text="Pending">
                       <button
                         onClick={() => handleUpdateStatus(job.id, "PENDING")}
                         disabled={actionLoading === job.id}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border shadow-sm ${job.status === "PENDING" ? "bg-amber-400 text-white border-amber-500" : "bg-white text-slate-500 border-slate-100 hover:text-amber-400 hover:border-amber-200"}`}
+                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all shadow-sm ${job.status === "PENDING" ? "bg-amber-400 text-white shadow-md shadow-amber-200" : "bg-slate-100 text-slate-500 hover:bg-amber-50 hover:text-amber-500"}`}
                       >
-                        <Clock size={14} strokeWidth={2.5} />
+                        <Clock size={16} strokeWidth={2.5} />
                       </button>
                     </Tooltip>
                     <Tooltip text="In-Progress">
@@ -321,18 +339,18 @@ export default function MyJobsPage() {
                           handleUpdateStatus(job.id, "IN_PROGRESS")
                         }
                         disabled={actionLoading === job.id}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border shadow-sm ${job.status === "IN_PROGRESS" ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-slate-500 border-slate-100 hover:text-indigo-600 hover:border-indigo-200"}`}
+                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all shadow-sm ${job.status === "IN_PROGRESS" ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"}`}
                       >
-                        <Zap size={14} strokeWidth={2.5} />
+                        <Zap size={16} strokeWidth={2.5} />
                       </button>
                     </Tooltip>
                     <Tooltip text="Complete">
                       <button
                         onClick={() => handleUpdateStatus(job.id, "COMPLETED")}
                         disabled={actionLoading === job.id}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border shadow-sm ${job.status === "COMPLETED" ? "bg-emerald-500 text-white border-emerald-600" : "bg-white text-slate-500 border-slate-100 hover:text-emerald-500 hover:border-emerald-200"}`}
+                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all shadow-sm ${job.status === "COMPLETED" ? "bg-emerald-500 text-white shadow-md shadow-emerald-200" : "bg-slate-100 text-slate-500 hover:bg-emerald-50 hover:text-emerald-500"}`}
                       >
-                        <CheckCircle2 size={14} strokeWidth={2.5} />
+                        <CheckCircle2 size={16} strokeWidth={2.5} />
                       </button>
                     </Tooltip>
                   </div>
@@ -343,7 +361,7 @@ export default function MyJobsPage() {
           />
 
           {paginatedJobs.length > 0 && (
-            <div className="p-4 border-t border-slate-50 bg-slate-50">
+            <div className="px-8 py-6 border-t border-slate-100 bg-slate-50/30">
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -358,195 +376,254 @@ export default function MyJobsPage() {
       {showViewModal && selectedJob && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             onClick={closeModal}
           />
-          <div className="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+          <div className="bg-gradient-to-br from-slate-50 via-white to-slate-100 w-full max-w-4xl rounded-xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 border border-slate-200">
             {/* Modal Header */}
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white relative z-10">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center shadow-sm text-indigo-600">
-                  <ClipboardList size={24} />
+            <div className="px-8 py-6 bg-white relative z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <ClipboardList size={32} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                      {selectedJob.service?.name || "Job Details"}
+                    </h2>
+                    <p className="text-sm text-indigo-600 font-bold mt-1.5">
+                      {selectedJob.vendor?.studio_name || "Individual Client"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-none mb-1">
-                    Production Details
-                  </h2>
-                </div>
+                <button
+                  onClick={closeModal}
+                  aria-label="Close modal"
+                  className="w-11 h-11 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 rounded-xl transition-all"
+                >
+                  <X size={20} />
+                </button>
               </div>
-              <button
-                onClick={closeModal}
-                className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-100 rounded-xl transition-all shadow-sm"
-              >
-                <X size={20} />
-              </button>
             </div>
 
             {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-7 custom-scrollbar">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left Side (Main Content) */}
-                <div className="lg:col-span-8 space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest border-l-4 border-indigo-500 pl-4">
-                        Contact Details
-                      </h3>
-                      <div className="space-y-3">
-                        <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-2xl group transition-all hover:bg-slate-100 border border-slate-100">
-                          <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors shadow-sm">
-                            <Building2 size={18} />
-                          </div>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                              Studio Name
-                            </span>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-bold text-slate-900 truncate tracking-tight">
-                                {selectedJob.vendor?.studio_name ||
-                                  "Individual Client"}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-4 p-4 bg-rose-50 rounded-2xl border border-rose-100 group transition-all hover:bg-rose-50">
-                          <div className="w-10 h-10 rounded-xl bg-white border border-rose-100 flex items-center justify-center text-rose-500 shadow-sm">
-                            <Calendar size={18} />
-                          </div>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">
-                              Submission Deadline
-                            </span>
-                            <span className="text-sm font-bold text-rose-600 truncate tracking-tight">
-                              {new Date(
-                                selectedJob.job_due_date,
-                              ).toLocaleDateString("en-IN", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest border-l-4 border-emerald-500 pl-4">
-                        Location
-                      </h3>
-                      <div className="space-y-3">
-                        <div className="flex items-start space-x-4 p-4 bg-slate-50 rounded-2xl group transition-all hover:bg-slate-100 border border-slate-100">
-                          <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 transition-colors shadow-sm shrink-0">
-                            <MapPin size={18} />
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                              Job Data Location
-                            </span>
-                            <span className="text-sm font-bold text-slate-900 whitespace-pre-wrap leading-tight break-words overflow-wrap-anywhere tracking-tight">
-                              {selectedJob.data_location || "Pending"}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-start space-x-4 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 group transition-all hover:bg-indigo-50">
-                          <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 flex items-center justify-center text-indigo-400 shadow-sm shrink-0">
-                            <ExternalLink size={18} />
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
-                              Job Final Location
-                            </span>
-                            <span className="text-sm font-bold text-indigo-900 whitespace-pre-wrap leading-tight break-words overflow-wrap-anywhere tracking-tight">
-                              {selectedJob.final_location || "Pending"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left Side (Main Content) - Takes 2 columns */}
+                <div className="lg:col-span-2 space-y-7">
+                  {/* General Details */}
                   <section>
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="w-1.5 h-6 bg-indigo-600 rounded-full" />
-                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">
+                    <h3 className="text-sm font-bold text-slate-900 mb-4">
+                      General Details
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white rounded-2xl border border-slate-200 p-5">
+                        <div className="flex items-start space-x-4">
+                          <div className="w-11 h-11 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 shrink-0">
+                            <UserIcon size={20} />
+                          </div>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="text-xs font-medium text-slate-500 mb-1">
+                              Assigned To
+                            </span>
+                            <span className="text-base font-bold text-slate-900">
+                              {selectedJob.staff?.name || "You"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-2xl border border-slate-200 p-5">
+                        <div className="flex items-start space-x-4">
+                          <div className="w-11 h-11 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 shrink-0">
+                            <Building2 size={20} />
+                          </div>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="text-xs font-medium text-slate-500 mb-1">
+                              Studio Contact
+                            </span>
+                            <span className="text-base font-bold text-slate-900">
+                              {selectedJob.vendor?.studio_name || "Individual"}
+                            </span>
+                            {selectedJob.vendor?.contact_person && (
+                              <span className="text-xs text-slate-500 mt-0.5">
+                                {selectedJob.vendor.contact_person}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Work Description */}
+                  <section>
+                    <div className="flex items-center space-x-2 mb-4">
+                      <ClipboardList size={16} className="text-indigo-600" />
+                      <h3 className="text-sm font-bold text-slate-900">
                         Work Description
                       </h3>
                     </div>
-                    <div className="bg-slate-50 rounded-[2rem] border border-slate-100 p-7 relative overflow-hidden group">
-                      <FileText
-                        className="absolute top-6 right-6 text-slate-200 opacity-20 transition-colors"
-                        size={120}
-                      />
-                      <div className="relative z-10">
-                        <div className="bg-white backdrop-blur-sm p-6 rounded-2xl border border-slate-100 shadow-sm">
-                          <p className="text-slate-700 font-bold leading-relaxed italic text-lg whitespace-pre-wrap">
-                            &quot;
-                            {selectedJob.description ||
-                              "No specific instructions provided."}
-                            &quot;
-                          </p>
+                    <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6">
+                      <p className="text-slate-700 font-normal leading-relaxed text-base">
+                        {selectedJob.description ||
+                          "No specific instructions provided."}
+                      </p>
+                    </div>
+                  </section>
+
+                  {/* Location */}
+                  <section>
+                    <h3 className="text-sm font-bold text-slate-900 mb-4">
+                      Location
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white rounded-2xl border border-slate-200 p-5">
+                        <div className="flex items-start space-x-4">
+                          <div className="w-11 h-11 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 shrink-0">
+                            <MapPin size={20} />
+                          </div>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="text-xs font-medium text-indigo-600 mb-1">
+                              Job Data Location
+                            </span>
+                            <span className="text-base font-bold text-slate-900 break-words">
+                              {selectedJob.data_location || "Not specified"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-indigo-50/50 rounded-2xl border border-indigo-200 p-5">
+                        <div className="flex items-start space-x-4">
+                          <div className="w-11 h-11 bg-white rounded-xl flex items-center justify-center text-indigo-600 shrink-0">
+                            <ExternalLink size={20} />
+                          </div>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="text-xs font-medium text-indigo-600 mb-1">
+                              Job Final Location
+                            </span>
+                            <span className="text-base font-bold text-slate-900 break-words">
+                              {selectedJob.final_location ||
+                                "Pending upload..."}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </section>
                 </div>
 
-                {/* Right Side (Financial & Status) */}
-                <div className="lg:col-span-4 space-y-6">
-                  <div className="bg-slate-50 rounded-[2rem] border border-slate-100 p-7 space-y-3">
+                {/* Right Side (Status & Actions) */}
+                <div className="lg:col-span-1">
+                  <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-6 sticky top-0 shadow-sm">
                     <div>
-                      <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">
-                        Update Status
+                      <h3 className="text-sm font-bold text-slate-700 mb-4">
+                        Production Status
                       </h3>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <button
                           onClick={() =>
                             handleUpdateStatus(selectedJob.id, "PENDING")
                           }
                           disabled={actionLoading === selectedJob.id}
-                          className={`w-full py-2.5 px-6 flex items-center justify-center rounded-xl transition-all space-x-2 border shadow-sm ${selectedJob.status === "PENDING" ? "bg-amber-400 text-white border-amber-500 shadow-md shadow-amber-100" : "bg-white text-slate-500 border-slate-200 hover:bg-amber-50"}`}
+                          aria-label="Set status to pending"
+                          className={`w-full py-3.5 px-5 flex items-center justify-center rounded-xl transition-all space-x-2.5 font-bold text-sm ${
+                            selectedJob.status === "PENDING"
+                              ? "bg-amber-400 text-white shadow-md"
+                              : "bg-white text-slate-600 border border-slate-200 hover:bg-amber-50"
+                          }`}
                         >
-                          <Clock size={14} />
-                          <span className="text-[10px] font-black uppercase tracking-wider">
-                            Pending
-                          </span>
+                          <Clock size={18} />
+                          <span>Pending</span>
                         </button>
                         <button
                           onClick={() =>
                             handleUpdateStatus(selectedJob.id, "IN_PROGRESS")
                           }
                           disabled={actionLoading === selectedJob.id}
-                          className={`w-full py-2.5 px-6 flex items-center justify-center rounded-xl transition-all space-x-2 border shadow-sm ${selectedJob.status === "IN_PROGRESS" ? "bg-indigo-600 text-white border-indigo-700 shadow-md shadow-indigo-100" : "bg-white text-slate-500 border-slate-200 hover:bg-indigo-50"}`}
+                          aria-label="Set status to in-progress"
+                          className={`w-full py-3.5 px-5 flex items-center justify-center rounded-xl transition-all space-x-2.5 font-bold text-sm ${
+                            selectedJob.status === "IN_PROGRESS"
+                              ? "bg-indigo-600 text-white shadow-md"
+                              : "bg-white text-slate-600 border border-slate-200 hover:bg-indigo-50"
+                          }`}
                         >
-                          <Zap size={14} />
-                          <span className="text-[10px] font-black uppercase tracking-wider">
-                            In-Progress
-                          </span>
+                          <Zap size={18} />
+                          <span>In-Progress</span>
                         </button>
                         <button
                           onClick={() =>
                             handleUpdateStatus(selectedJob.id, "COMPLETED")
                           }
                           disabled={actionLoading === selectedJob.id}
-                          className={`w-full py-2.5 px-6 flex items-center justify-center rounded-xl transition-all space-x-2 border shadow-sm ${selectedJob.status === "COMPLETED" ? "bg-emerald-500 text-white border-emerald-600 shadow-md shadow-emerald-100" : "bg-white text-slate-500 border-slate-200 hover:bg-emerald-50"}`}
+                          aria-label="Set status to complete"
+                          className={`w-full py-3.5 px-5 flex items-center justify-center rounded-xl transition-all space-x-2.5 font-bold text-sm ${
+                            selectedJob.status === "COMPLETED"
+                              ? "bg-emerald-500 text-white shadow-md"
+                              : "bg-white text-slate-600 border border-slate-200 hover:bg-emerald-50"
+                          }`}
                         >
-                          <CheckCircle2 size={14} />
-                          <span className="text-[10px] font-black uppercase tracking-wider">
-                            Complete
-                          </span>
+                          <CheckCircle2 size={18} />
+                          <span>Complete</span>
                         </button>
                       </div>
                     </div>
-                    <div className="pt-3 border-t border-slate-200">
-                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-                        Job
-                      </p>
-                      <p className="text-xl font-black text-slate-900 tracking-tight uppercase">
-                        {selectedJob.service?.name}
-                      </p>
+
+                    <div className="pt-5 border-t border-slate-100">
+                      <h3 className="text-sm font-bold text-slate-700 mb-3">
+                        Production Deadline
+                      </h3>
+                      <div className="flex items-center space-x-3 text-rose-600">
+                        <Calendar size={18} />
+                        <span className="text-xl font-bold">
+                          {new Date(
+                            selectedJob.job_due_date,
+                          ).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
                     </div>
+
+                    {selectedJob.job_charge && (
+                      <div className="pt-5 border-t border-slate-100">
+                        <h3 className="text-sm font-bold text-slate-700 mb-3">
+                          Financial Summary
+                        </h3>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-2xl font-bold text-slate-900">
+                              ₹{selectedJob.job_charge?.toLocaleString()}
+                            </span>
+                            <div className="text-right">
+                              <div className="text-xs text-slate-500">
+                                Commission
+                              </div>
+                              <div className="text-sm font-bold text-rose-600">
+                                -₹
+                                {selectedJob.staff_commission?.toLocaleString() ||
+                                  "0"}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="pt-3 border-t border-slate-100">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-slate-500">
+                                Net Profit
+                              </span>
+                              <span className="text-lg font-bold text-indigo-600">
+                                ₹
+                                {(
+                                  (selectedJob.job_charge || 0) -
+                                  (selectedJob.staff_commission || 0)
+                                ).toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

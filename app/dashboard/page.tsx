@@ -1,20 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  LayoutDashboard,
   Users,
-  Briefcase,
   Building2,
   ClipboardList,
-  LogOut,
-  Menu,
-  X,
   Clock,
   CheckCircle2,
-  Sparkles,
+  Calendar,
+  ArrowRight,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import Spinner from "../../components/Spinner";
@@ -24,6 +19,7 @@ export default function DashboardPage() {
   const [userRole, setUserRole] = useState<string>("USER");
   const [userName, setUserName] = useState<string>("");
   const [statsLoading, setStatsLoading] = useState(true);
+  const [recentJobs, setRecentJobs] = useState<any[]>([]);
   const [stats, setStats] = useState({
     totalJobs: 0,
     inProgress: 0,
@@ -185,13 +181,33 @@ export default function DashboardPage() {
           });
 
           // 3. Fetch stats in parallel
-          const [jobsResponse, usersResponse] = await Promise.all([
-            jobsQuery,
-            usersQuery || Promise.resolve({ count: 0 }),
-          ]);
+          // 4. Fetch recent jobs for non-admin users
+          let recentJobsQuery = null;
+          if (isSystemStaff || !isSystemAdmin) {
+            recentJobsQuery = (supabase as any)
+              .from("jobs")
+              .select(
+                `
+                *,
+                service:services(name),
+                vendor:vendors(studio_name)
+              `,
+              )
+              .eq("staff_id", currentSession.user.id)
+              .order("created_at", { ascending: false })
+              .limit(5);
+          }
+
+          const [jobsResponse, usersResponse, recentJobsResponse] =
+            await Promise.all([
+              jobsQuery,
+              usersQuery || Promise.resolve({ count: 0 }),
+              recentJobsQuery || Promise.resolve({ data: [] }),
+            ]);
 
           const { data: jobs, count: totalJobs } = jobsResponse;
           const { count: totalUsers } = usersResponse;
+          const { data: recentJobsData } = recentJobsResponse;
 
           const safeJobs = (jobs || []) as { status: string }[];
 
@@ -201,6 +217,7 @@ export default function DashboardPage() {
               .length,
             completed: safeJobs.filter((j) => j.status === "COMPLETED").length,
             totalUsers: totalUsers || 0,
+            recentJobsCount: recentJobsData?.length || 0,
             timestamp: new Date().toISOString(),
           });
 
@@ -213,6 +230,7 @@ export default function DashboardPage() {
                 .length,
               totalUsers: totalUsers || 0,
             });
+            setRecentJobs(recentJobsData || []);
           }
         } else {
           console.log("[PAGE] ⚠️ No session found for stats", {
@@ -358,6 +376,91 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+
+        {/* Recent Jobs Section for Staff/User */}
+        {!isAdmin && recentJobs.length > 0 && (
+          <div className="card-aesthetic p-6 mb-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-100 flex items-center justify-center">
+                  <ClipboardList size={18} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">
+                    Recent Jobs
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Your latest assignments
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/dashboard/staff/my-jobs"
+                className="flex items-center space-x-2 text-indigo-600 hover:text-indigo-700 text-sm font-bold transition-colors"
+              >
+                <span>View All</span>
+                <ArrowRight size={16} />
+              </Link>
+            </div>
+
+            <div className="space-y-3">
+              {recentJobs.map((job: any) => (
+                <Link
+                  key={job.id}
+                  href={`/dashboard/staff/my-jobs/view/${job.id}`}
+                  className="block group"
+                >
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 hover:bg-white hover:border-indigo-100 hover:shadow-md transition-all">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4 flex-1 min-w-0">
+                        <div className="w-10 h-10 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-500 group-hover:text-indigo-600 group-hover:border-indigo-200 transition-colors shrink-0">
+                          <Building2 size={18} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
+                            {job.service?.name || "Job"}
+                          </h3>
+                          <p className="text-xs text-slate-500 font-medium truncate">
+                            {job.vendor?.studio_name || "Individual"} •{" "}
+                            {job.description}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-4 ml-4 shrink-0">
+                        <div className="flex items-center text-xs text-slate-500 font-medium">
+                          <Calendar
+                            size={12}
+                            className="mr-1.5 text-slate-400"
+                          />
+                          {new Date(job.job_due_date).toLocaleDateString(
+                            undefined,
+                            {
+                              month: "short",
+                              day: "numeric",
+                            },
+                          )}
+                        </div>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                            job.status === "COMPLETED"
+                              ? "bg-emerald-500 text-white"
+                              : job.status === "PENDING"
+                                ? "bg-amber-400 text-white"
+                                : "bg-indigo-600 text-white"
+                          }`}
+                        >
+                          {job.status === "IN_PROGRESS"
+                            ? "IN-PROGRESS"
+                            : job.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

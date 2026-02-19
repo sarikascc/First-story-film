@@ -60,7 +60,7 @@ export default function AestheticSelect({
                 disabled={disabled}
                 onClick={() => !disabled && setIsOpen(!isOpen)}
                 className={cn(
-                    "w-full bg-white border border-gray-300 rounded-lg pl-3 pr-10 flex items-center transition-all duration-200",
+                    "w-full bg-white border border-gray-300 rounded-lg pl-3 pr-4 flex items-center transition-all duration-200",
                     heightClass,
                     "hover:border-gray-400",
                     isOpen && "border-indigo-600 ring-1 ring-indigo-500 bg-white",

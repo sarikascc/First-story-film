@@ -140,10 +140,10 @@ export default function Sidebar({
         {/* Desktop Collapse Toggle Button - On Border */}
         <button
           onClick={onToggleCollapse}
-          className="hidden lg:flex items-center justify-center absolute -right-5 top-4.5 w-8 h-8 bg-indigo-600 text-white border-2 border-white rounded-full hover:bg-white hover:text-indigo-600 hover:border-indigo-600 hover:shadow-md transition-all duration-300 z-50"
+          className="hidden lg:flex items-center justify-center absolute -right-4 top-5 w-6 h-6 bg-white text-indigo-600 border-2 border-indigo-600 rounded-full hover:bg-indigo-600 hover:text-white hover:border-white hover:shadow-md transition-all duration-300 z-50"
           title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
-          {isCollapsed ? <ChevronRight size={24} /> : <ChevronLeft size={24} />}
+          {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
 
         {/* Branding */}
@@ -153,15 +153,15 @@ export default function Sidebar({
           <div
             className={`flex items-center cursor-pointer ${isCollapsed ? "lg:justify-center lg:space-x-0 lg:mt-2" : "space-x-1"}`}
           >
-            <div
+            {/* <div
               className={`bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 flex-shrink-0 ${isCollapsed ? "lg:w-9 lg:h-9 " : "w-10 h-10"}`}
             >
               <Sparkles className="text-white" size={18} />
-            </div>
+            </div> */}
             <h1
-              className={`text-lg font-semibold font-heading text-black whitespace-nowrap overflow-hidden transition-all duration-300 ${isCollapsed ? "lg:w-0 lg:opacity-0" : "lg:w-auto lg:opacity-100"}`}
+              className={`text-base font-semibold font-heading text-black whitespace-nowrap overflow-hidden transition-all duration-300 ${isCollapsed ? "lg:w-0 lg:opacity-0" : "lg:w-auto lg:opacity-100"}`}
             >
-              FIRST STORY <span className="text-indigo-600">FILMS</span>
+              FIRST STORY <span className="text-indigo-600">PRODUCTION</span>
             </h1>
           </div>
         </div>

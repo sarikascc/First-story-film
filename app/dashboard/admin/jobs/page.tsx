@@ -51,7 +51,9 @@ import Pagination from "../../../../components/Pagination";
 import Table from "../../../../components/Table";
 import Tooltip from "../../../../components/Tooltip";
 import AestheticSelect from "../../../../components/AestheticSelect";
+import SearchableSelect from "../../../../components/SearchableSelect";
 import Badge from "../../../../components/Badge";
+import VendorForm from "../../../../components/VendorForm";
 
 export default function JobsPage() {
   const router = useRouter();
@@ -84,6 +86,17 @@ export default function JobsPage() {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [modalLoading, setModalLoading] = useState(false);
 
+  // Vendor Modal States
+  const [showVendorModal, setShowVendorModal] = useState(false);
+  const [vendorFormData, setVendorFormData] = useState({
+    studio_name: "",
+    contact_person: "",
+    mobile: "",
+    email: "",
+    location: "",
+    notes: "",
+  });
+
   // Form Data States for Create/Edit
   const [services, setServices] = useState<Service[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -93,6 +106,7 @@ export default function JobsPage() {
   const [selectedVendor, setSelectedVendor] = useState("");
   const [selectedStaff, setSelectedStaff] = useState("");
   const [staffPercentage, setStaffPercentage] = useState<number>(0);
+  const [isCommissionManuallySet, setIsCommissionManuallySet] = useState(false);
   const [formData, setFormData] = useState({
     description: "",
     data_location: "",
@@ -100,6 +114,7 @@ export default function JobsPage() {
     job_due_date: "",
     staff_due_date: "",
     amount: 0,
+    commission_amount: 0,
     status: "PENDING",
   });
 
@@ -262,6 +277,26 @@ export default function JobsPage() {
     fetchStaffByService();
   }, [selectedService, showCreateModal]);
 
+  // Effect to auto-calculate commission when amount or percentage changes
+  useEffect(() => {
+    if (!isCommissionManuallySet && (showCreateModal || showEditModal)) {
+      const autoCommission = calculateCommission(
+        formData.amount,
+        staffPercentage,
+      );
+      setFormData((prev) => ({
+        ...prev,
+        commission_amount: autoCommission,
+      }));
+    }
+  }, [
+    formData.amount,
+    staffPercentage,
+    isCommissionManuallySet,
+    showCreateModal,
+    showEditModal,
+  ]);
+
   // Effect to set default commission when staff is selected
   useEffect(() => {
     if (selectedStaff && (showCreateModal || showEditModal)) {
@@ -306,7 +341,6 @@ export default function JobsPage() {
     }
 
     try {
-      const commission = calculateCommission(formData.amount, staffPercentage);
       const { error } = await (supabase.from("jobs") as any)
         .insert([
           {
@@ -322,7 +356,7 @@ export default function JobsPage() {
               : null,
             status: formData.status,
             amount: formData.amount,
-            commission_amount: commission,
+            commission_amount: formData.commission_amount,
           },
         ])
         .select();
@@ -342,7 +376,6 @@ export default function JobsPage() {
 
   const handleUpdateJob = async (e: React.FormEvent) => {
     try {
-      const commission = calculateCommission(formData.amount, staffPercentage);
       const { error } = await (supabase.from("jobs") as any)
         .update({
           service_id: selectedService,
@@ -356,7 +389,7 @@ export default function JobsPage() {
             ? new Date(formData.staff_due_date).toISOString()
             : null,
           amount: formData.amount,
-          commission_amount: commission,
+          commission_amount: formData.commission_amount,
           status: formData.status,
         })
         .eq("id", selectedJob.id);
@@ -382,12 +415,81 @@ export default function JobsPage() {
       job_due_date: "",
       staff_due_date: "",
       amount: 0,
+      commission_amount: 0,
       status: "PENDING",
     });
     setSelectedService("");
     setSelectedVendor("");
     setSelectedStaff("");
     setStaffPercentage(0);
+    setIsCommissionManuallySet(false);
+  };
+
+  // Vendor Management Functions
+  const handleVendorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalLoading(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("No active session");
+      }
+
+      const response = await fetch("/api/vendors", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(vendorFormData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create vendor");
+      }
+
+      const result = await response.json();
+      showNotification("Vendor created successfully!");
+      setShowVendorModal(false);
+      resetVendorForm();
+
+      // Refresh vendors list
+      await fetchCommonData();
+
+      // Auto-select the newly created vendor
+      if (result && result.id) {
+        setSelectedVendor(result.id);
+      }
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Something went wrong while creating vendor.";
+      console.error("Error creating vendor:", error);
+      showNotification(message, "error");
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const resetVendorForm = () => {
+    setVendorFormData({
+      studio_name: "",
+      contact_person: "",
+      mobile: "",
+      email: "",
+      location: "",
+      notes: "",
+    });
+  };
+
+  const openVendorForm = () => {
+    resetVendorForm();
+    setShowVendorModal(true);
   };
 
   const openEditModal = (job: any) => {
@@ -403,11 +505,13 @@ export default function JobsPage() {
         ? new Date(job.staff_due_date).toISOString().slice(0, 16)
         : "",
       amount: job.amount || 0,
+      commission_amount: job.commission_amount || 0,
       status: job.status || "PENDING",
     });
     setSelectedService(job.service_id);
     setSelectedVendor(job.vendor_id || "");
     setSelectedStaff(job.staff_id || "");
+    setIsCommissionManuallySet(true);
 
     // Find commission percentage from stats if possible, or just fetch again
     // For now, let the useEffect handle it when service/staff are set
@@ -511,9 +615,7 @@ export default function JobsPage() {
               <ClipboardList size={18} className="text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-black">
-                Job Management
-              </h1>
+              <h1 className="text-xl font-bold text-black">Job Management</h1>
             </div>
           </div>
           <button
@@ -715,7 +817,11 @@ export default function JobsPage() {
                 const getStatusDetails = (status: string) => {
                   switch (status) {
                     case "COMPLETED":
-                      return { color: "emerald", icon: CheckCircle2, label: "Complete" };
+                      return {
+                        color: "emerald",
+                        icon: CheckCircle2,
+                        label: "Complete",
+                      };
                     case "IN_PROGRESS":
                       return { color: "blue", icon: Zap, label: "In Progress" };
                     case "PENDING":
@@ -724,10 +830,12 @@ export default function JobsPage() {
                   }
                 };
                 const { color, icon, label } = getStatusDetails(job.status);
-                
+
                 return (
                   <div className="flex justify-center">
-                    <Badge color={color as any} icon={icon}>{label}</Badge>
+                    <Badge color={color as any} icon={icon}>
+                      {label}
+                    </Badge>
                   </div>
                 );
               }
@@ -1105,21 +1213,36 @@ export default function JobsPage() {
               <div className="p-5 overflow-y-auto">
                 <section className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <AestheticSelect
-                      label="Vendor"
-                      heightClass="h-10"
-                      required
-                      options={vendors.map((v) => ({
-                        id: v.id,
-                        name: v.studio_name,
-                      }))}
-                      value={selectedVendor}
-                      onChange={setSelectedVendor}
-                      placeholder="Select Vendor..."
-                    />
-                    <AestheticSelect
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <SearchableSelect
+                          label="Vendor"
+                          heightClass="h-10"
+                          labelStyle="normal"
+                          inputStyle="normal"
+                          required
+                          options={vendors.map((v) => ({
+                            id: v.id,
+                            name: v.studio_name,
+                          }))}
+                          value={selectedVendor}
+                          onChange={setSelectedVendor}
+                          placeholder="Search Vendor..."
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={openVendorForm}
+                        className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2 transition-colors duration-200 font-medium text-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <SearchableSelect
                       label="Service / Job Type"
                       heightClass="h-10"
+                      labelStyle="normal"
+                      inputStyle="normal"
                       required
                       options={services.map((s) => ({
                         id: s.id,
@@ -1127,7 +1250,7 @@ export default function JobsPage() {
                       }))}
                       value={selectedService}
                       onChange={setSelectedService}
-                      placeholder="Select Service..."
+                      placeholder="Search Service..."
                     />
                   </div>
 
@@ -1152,10 +1275,27 @@ export default function JobsPage() {
 
                     <div>
                       <label className="label text-sm font-normal text-gray-900 mb-1.5 block ml-1">
+                        Staff Due Date
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full h-10 bg-white border-2 border-slate-100 rounded-lg px-4 text-[12px] uppercase tracking-widest text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-50 transition-all duration-300"
+                        value={formData.staff_due_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            staff_due_date: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <label className="label text-sm font-normal text-gray-900 mb-1.5 block ml-1">
                         Job Due Date <span className="text-rose-500">*</span>
                       </label>
                       <input
-                        type="datetime-local"
+                        type="date"
                         className="w-full h-10 bg-white border-2 border-slate-100 rounded-lg px-4 text-[12px] uppercase tracking-widest text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-50 transition-all duration-300"
                         value={formData.job_due_date}
                         onChange={(e) =>
@@ -1165,23 +1305,6 @@ export default function JobsPage() {
                           })
                         }
                         required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="label text-sm font-normal text-gray-900 mb-1.5 block ml-1">
-                        Staff Due Date
-                      </label>
-                      <input
-                        type="datetime-local"
-                        className="w-full h-10 bg-white border-2 border-slate-100 rounded-lg px-4 text-[12px] uppercase tracking-widest text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-50 transition-all duration-300"
-                        value={formData.staff_due_date}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            staff_due_date: e.target.value,
-                          })
-                        }
                       />
                     </div>
                   </div>
@@ -1240,7 +1363,7 @@ export default function JobsPage() {
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                  <div className="border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                     <div>
                       <label className="label text-sm font-normal text-gray-900 mb-1.5 block">
                         Job Total Amount (Base){" "}
@@ -1266,19 +1389,54 @@ export default function JobsPage() {
                           min="0"
                         />
                       </div>
-                      <div className="mt-1.5 flex items-center justify-between px-2">
-                        <span className="text-sm font-normal text-gray-900">
-                          Est. Commission
+                    </div>
+
+                    <div>
+                      <label className="label text-sm font-normal text-gray-900 mb-1.5 block mt-2">
+                        Staff Commission Amount
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">
+                          ₹
                         </span>
-                        <span className="text-sm font-black text-indigo-600">
-                          {formatCurrency(
-                            calculateCommission(
+                        <input
+                          type="number"
+                          className="input-aesthetic h-10 pl-10 font-bold text-base text-indigo-600 border-2 border-slate-50"
+                          placeholder="0"
+                          value={formData.commission_amount || ""}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            setFormData({
+                              ...formData,
+                              commission_amount: Number(e.target.value),
+                            });
+                            setIsCommissionManuallySet(true);
+                          }}
+                          min="0"
+                        />
+                      </div>
+                      {/* <div className="mt-1.5 flex items-center justify-between px-2">
+                        <span className="text-xs text-gray-500">
+                          Auto: {staffPercentage}% of ₹{formData.amount}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const autoCommission = calculateCommission(
                               formData.amount,
                               staffPercentage,
-                            ),
-                          )}
-                        </span>
-                      </div>
+                            );
+                            setFormData({
+                              ...formData,
+                              commission_amount: autoCommission,
+                            });
+                            setIsCommissionManuallySet(false);
+                          }}
+                          className="text-xs text-indigo-600 hover:text-indigo-700 font-medium underline"
+                        >
+                          Reset to Auto
+                        </button>
+                      </div> */}
                     </div>
                   </div>
                 </section>
@@ -1310,6 +1468,16 @@ export default function JobsPage() {
           </div>
         </div>
       )}
+
+      {/* Vendor Form Modal */}
+      <VendorForm
+        isOpen={showVendorModal}
+        onClose={() => setShowVendorModal(false)}
+        onSubmit={handleVendorSubmit}
+        formData={vendorFormData}
+        setFormData={setVendorFormData}
+        isEditing={false}
+      />
     </div>
   );
 }
