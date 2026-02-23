@@ -4,7 +4,6 @@ import { useState, useEffect, use } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import {
-  Building2,
   User,
   Smartphone,
   Mail,
@@ -12,21 +11,36 @@ import {
   ArrowLeft,
   AlertCircle,
   CheckCircle2,
-  Zap,
-  Clock,
-  X,
   ClipboardList,
-  ExternalLink,
-  FileText,
   Calendar,
-  Eye,
   Edit2,
+  LayoutList,
+  Wallet,
+  Plus,
+  Trash2,
+  Banknote,
+  History,
+  Receipt,
+  Printer,
+  FileCheck,
+  CheckSquare,
 } from "lucide-react";
 import Spinner from "@/components/Spinner";
 import { formatCurrency } from "@/lib/utils";
 import Badge from "@/components/Badge";
 import VendorForm from "@/components/VendorForm";
 import Tooltip from "@/components/Tooltip";
+import Table from "@/components/Table";
+import InvoiceModal from "./_components/InvoiceModal";
+import InvoiceDetailModal from "./_components/InvoiceDetailModal";
+import PrintInvoiceModal from "./_components/PrintInvoiceModal";
+import JobViewModal from "./_components/JobViewModal";
+import { PaymentFormState } from "./_components/PaymentModal";
+import PaymentModal from "./_components/PaymentModal";
+import PaymentDetailModal from "./_components/PaymentDetailModal";
+import ConfirmationDialog from "@/components/ConfirmationDialog";
+
+type ActiveTab = "jobs" | "payments" | "invoice";
 
 export default function VendorDetailPage({
   params,
@@ -53,6 +67,74 @@ export default function VendorDetailPage({
     message: string;
     type: "success" | "error";
   } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Tabs
+  const [activeTab, setActiveTab] = useState<ActiveTab>("jobs");
+
+  // Payment State
+  const [payments, setPayments] = useState<any[]>([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentForm, setPaymentForm] = useState<PaymentFormState>({
+    invoice_ids: [],
+    amount: "",
+    date: new Date().toISOString().split("T")[0],
+    note: "",
+  });
+  const [paymentStats, setPaymentStats] = useState({
+    totalPayable: 0,
+    totalPaid: 0,
+    remaining: 0,
+  });
+
+  // Invoice State (multi-select)
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceJobIds, setInvoiceJobIds] = useState<string[]>([]);
+  const [invoiceNote, setInvoiceNote] = useState("");
+  const [savedInvoices, setSavedInvoices] = useState<any[]>([]);
+  const [viewingInvoice, setViewingInvoice] = useState<any | null>(null);
+  const [viewingPayment, setViewingPayment] = useState<any | null>(null);
+  const [isSavingInvoice, setIsSavingInvoice] = useState(false);
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [showPrintInvoiceModal, setShowPrintInvoiceModal] = useState(false);
+  const [printInvoiceData, setPrintInvoiceData] = useState<any | null>(null);
+  const [confirmDeletePaymentId, setConfirmDeletePaymentId] = useState<
+    string[] | null
+  >(null);
+  const [confirmDeleteInvoiceId, setConfirmDeleteInvoiceId] = useState<
+    string | null
+  >(null);
+  const [jobSearchQuery, setJobSearchQuery] = useState("");
+  const [showJobDropdown, setShowJobDropdown] = useState(false);
+
+  const toggleInvoiceJob = (jobId: string) => {
+    setInvoiceJobIds((prev) =>
+      prev.includes(jobId)
+        ? prev.filter((id) => id !== jobId)
+        : [...prev, jobId],
+    );
+  };
+
+  const closeInvoiceModal = () => {
+    setShowInvoiceModal(false);
+    setInvoiceJobIds([]);
+    setInvoiceNote("");
+    setJobSearchQuery("");
+    setShowJobDropdown(false);
+    setEditingInvoiceId(null);
+  };
+
+  const openEditInvoiceModal = (inv: any) => {
+    setEditingInvoiceId(inv.id);
+    setInvoiceJobIds(inv.job_ids || []);
+    setInvoiceNote(inv.note || "");
+    setShowInvoiceModal(true);
+  };
+
+  const handlePrintSavedInvoice = (inv: any) => {
+    setPrintInvoiceData(inv);
+    setShowPrintInvoiceModal(true);
+  };
 
   const showNotification = (
     message: string,
@@ -88,6 +170,7 @@ export default function VendorDetailPage({
 
   const handleUpdateVendor = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       const { error } = await (supabase.from("vendors") as any)
         .update(editFormData)
@@ -101,6 +184,8 @@ export default function VendorDetailPage({
     } catch (error) {
       console.error("Error updating vendor:", error);
       showNotification("Failed to update vendor", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -126,7 +211,6 @@ export default function VendorDetailPage({
       };
       showNotification(statusLabels[newStatus] || newStatus);
 
-      // Update local state
       setRecentJobs((prev) =>
         prev.map((j) => (j.id === jobId ? { ...j, status: newStatus } : j)),
       );
@@ -145,7 +229,6 @@ export default function VendorDetailPage({
     try {
       setLoading(true);
 
-      // Fetch vendor details
       const { data: vendorData, error: vendorError } = await (
         supabase.from("vendors") as any
       )
@@ -156,51 +239,406 @@ export default function VendorDetailPage({
       if (vendorError) throw vendorError;
       setVendor(vendorData);
 
-      // Fetch recent jobs for this vendor with staff details
       const { data: jobsData, error: jobsError } = await (
         supabase.from("jobs") as any
       )
         .select(
-          `
-                    *,
-                    service:services(name),
-                    staff:users!staff_id(id, name, email, mobile)
-                `,
+          `*, service:services(name), staff:users!staff_id(id, name, email, mobile)`,
         )
         .eq("vendor_id", id)
-        .order("created_at", { ascending: false })
-        .limit(10);
+        .order("created_at", { ascending: false });
 
       if (jobsError) throw jobsError;
       setRecentJobs(jobsData || []);
+
+      // Calculate total payable = sum of all job amounts for this vendor
+      const totalPayable = (jobsData || []).reduce(
+        (sum: number, j: any) => sum + Number(j.amount || 0),
+        0,
+      );
+      setPaymentStats((prev) => ({ ...prev, totalPayable }));
     } catch (error) {
       console.error("Error fetching vendor details:", error);
     } finally {
-      // setLoading(false) // This line will be handled by the useEffect's then block or timeout
+      setLoading(false);
+    }
+  };
+
+  const fetchPayments = async () => {
+    try {
+      const { data, error } = await (supabase.from("vendor_payments") as any)
+        .select(
+          "*, job:jobs(id, service:services(name)), invoice:vendor_invoices(id, invoice_number)",
+        )
+        .eq("vendor_id", id)
+        .order("payment_date", { ascending: false });
+
+      if (error) {
+        console.warn(
+          "Could not fetch vendor payments (table might be missing):",
+          error,
+        );
+        return;
+      }
+
+      setPayments(data || []);
+    } catch (err) {
+      console.error("Error in fetchPayments:", err);
+    }
+  };
+
+  // Calculate payment status for each job based on invoice payments
+  // Priority: oldest job (by due date) gets paid first within multi-job invoices
+  const getJobPaymentStatus = (
+    jobId: string,
+  ): "Paid" | "Partially Paid" | "Pending" => {
+    const invoice = savedInvoices.find((inv) => inv.job_ids?.includes(jobId));
+    if (!invoice) return "Pending";
+
+    const invoicePayments = payments.filter((p) => p.invoice_id === invoice.id);
+    const totalPaid = invoicePayments.reduce(
+      (sum: number, p: any) => sum + Number(p.amount || 0),
+      0,
+    );
+    if (totalPaid <= 0) return "Pending";
+
+    // Sort jobs in invoice oldest-first by due_date
+    const invoiceJobs = recentJobs
+      .filter((j) => invoice.job_ids?.includes(j.id))
+      .sort(
+        (a: any, b: any) =>
+          new Date(a.job_due_date).getTime() -
+          new Date(b.job_due_date).getTime(),
+      );
+
+    let remaining = totalPaid;
+    for (const job of invoiceJobs) {
+      const amt = Number(job.amount || 0);
+      if (job.id === jobId) {
+        if (remaining >= amt) return "Paid";
+        if (remaining > 0) return "Partially Paid";
+        return "Pending";
+      }
+      remaining -= amt;
+      if (remaining < 0) remaining = 0;
+    }
+    return "Pending";
+  };
+
+  // Returns the unpaid remaining amount for a job (uses same priority logic)
+  const getJobRemainingAmount = (jobId: string): number => {
+    const job = recentJobs.find((j) => j.id === jobId);
+    if (!job) return 0;
+    const fullAmt = Number(job.amount || 0);
+
+    const invoice = savedInvoices.find((inv) => inv.job_ids?.includes(jobId));
+    if (!invoice) return fullAmt;
+
+    const invoicePayments = payments.filter((p) => p.invoice_id === invoice.id);
+    const totalPaidForInvoice = invoicePayments.reduce(
+      (sum: number, p: any) => sum + Number(p.amount || 0),
+      0,
+    );
+    if (totalPaidForInvoice <= 0) return fullAmt;
+
+    const invoiceJobs = recentJobs
+      .filter((j) => invoice.job_ids?.includes(j.id))
+      .sort(
+        (a: any, b: any) =>
+          new Date(a.job_due_date).getTime() -
+          new Date(b.job_due_date).getTime(),
+      );
+
+    let remaining = totalPaidForInvoice;
+    for (const j of invoiceJobs) {
+      const amt = Number(j.amount || 0);
+      if (j.id === jobId) {
+        const paidForThisJob = Math.min(remaining, amt);
+        return fullAmt - paidForThisJob;
+      }
+      remaining -= amt;
+      if (remaining < 0) remaining = 0;
+    }
+    return fullAmt;
+  };
+
+  useEffect(() => {
+    const totalPaid = payments.reduce(
+      (sum, p) => sum + Number(p.amount || 0),
+      0,
+    );
+    setPaymentStats((prev) => ({
+      ...prev,
+      totalPaid,
+      remaining: prev.totalPayable - totalPaid,
+    }));
+  }, [payments, paymentStats.totalPayable]);
+
+  const handleAddPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentForm.amount) return;
+
+    try {
+      // Generate payment number: PAY-yyyymmdd-XXXX
+      const _pNow = new Date();
+      const _pYmd =
+        _pNow.getFullYear().toString() +
+        String(_pNow.getMonth() + 1).padStart(2, "0") +
+        String(_pNow.getDate()).padStart(2, "0");
+      const _pSeq = String(payments.length + 1).padStart(4, "0");
+      const paymentNumber = `PAY-${_pYmd}-${_pSeq}`;
+
+      let insertRows: {
+        vendor_id: string;
+        invoice_id?: string;
+        amount: number;
+        payment_date: string;
+        note: string | null;
+        payment_number: string;
+      }[] = [];
+
+      if (paymentForm.invoice_ids.length > 0) {
+        // Sort invoices by their oldest job's due date (oldest first = highest priority)
+        const invWithPriority = paymentForm.invoice_ids
+          .map((invId) => {
+            const inv = savedInvoices.find((i) => i.id === invId);
+            const jobs = recentJobs.filter((j) => inv?.job_ids?.includes(j.id));
+            const oldestDate =
+              jobs.length > 0
+                ? Math.min(
+                    ...jobs.map((j) => new Date(j.job_due_date).getTime()),
+                  )
+                : Infinity;
+            return { inv, oldestDate };
+          })
+          .sort((a, b) => a.oldestDate - b.oldestDate);
+
+        // Distribute user-entered amount: oldest invoice gets paid first
+        let remaining = Number(paymentForm.amount);
+        insertRows = invWithPriority
+          .filter(({ inv }) => inv != null)
+          .map(({ inv }) => {
+            const allocated = Math.min(
+              Number(inv!.total_amount || 0),
+              remaining > 0 ? remaining : 0,
+            );
+            remaining -= allocated;
+            return {
+              vendor_id: id,
+              invoice_id: inv!.id,
+              amount: allocated,
+              payment_date: paymentForm.date,
+              note: paymentForm.note || null,
+              payment_number: paymentNumber,
+            };
+          });
+      } else {
+        insertRows = [
+          {
+            vendor_id: id,
+            amount: Number(paymentForm.amount),
+            payment_date: paymentForm.date,
+            note: paymentForm.note || null,
+            payment_number: paymentNumber,
+          },
+        ];
+      }
+
+      // Remove rows where no amount was allocated (e.g. amount ran out before this invoice)
+      insertRows = insertRows.filter((row) => row.amount > 0);
+
+      // Auto-mark jobs COMPLETED — only for invoices that received their full amount
+      const jobIdsToComplete: string[] = [];
+      for (const row of insertRows) {
+        if (!row.invoice_id) continue;
+        const inv = savedInvoices.find((i) => i.id === row.invoice_id);
+        if (
+          inv?.job_ids?.length &&
+          Number(row.amount) >= Number(inv.total_amount || 0)
+        ) {
+          jobIdsToComplete.push(...inv.job_ids);
+        }
+      }
+
+      let newPayments: any[] = [];
+      const { data, error } = await (supabase.from("vendor_payments") as any)
+        .insert(insertRows)
+        .select(
+          "*, job:jobs(id, service:services(name)), invoice:vendor_invoices(id, invoice_number)",
+        );
+      if (error) throw error;
+      newPayments = data || [];
+
+      if (jobIdsToComplete.length > 0) {
+        await (supabase.from("jobs") as any)
+          .update({
+            status: "COMPLETED",
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .in("id", jobIdsToComplete);
+
+        setRecentJobs((prev) =>
+          prev.map((j) =>
+            jobIdsToComplete.includes(j.id) ? { ...j, status: "COMPLETED" } : j,
+          ),
+        );
+      }
+
+      setPayments([...newPayments, ...payments]);
+      setShowPaymentModal(false);
+      setPaymentForm({
+        amount: "",
+        date: new Date().toISOString().split("T")[0],
+        note: "",
+        invoice_ids: [],
+      });
+      const msg =
+        jobIdsToComplete.length > 0
+          ? `Payment saved & ${jobIdsToComplete.length} job${jobIdsToComplete.length > 1 ? "s" : ""} marked complete!`
+          : "Payment recorded successfully";
+      showNotification(msg);
+    } catch (error: any) {
+      console.error("Error adding payment:", error);
+      showNotification(error.message || "Failed to add payment", "error");
+    }
+  };
+
+  const handleDeletePayment = async (paymentIds: string[]) => {
+    try {
+      const { error } = await (supabase.from("vendor_payments") as any)
+        .delete()
+        .in("id", paymentIds);
+
+      if (error) throw error;
+
+      setPayments(payments.filter((p) => !paymentIds.includes(p.id)));
+      showNotification("Payment deleted successfully");
+    } catch (error: any) {
+      console.error("Error deleting payment:", error);
+      showNotification("Failed to delete payment", "error");
+    }
+  };
+
+  const fetchInvoices = async () => {
+    try {
+      const { data, error } = await (supabase.from("vendor_invoices") as any)
+        .select("*")
+        .eq("vendor_id", id)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.warn("vendor_invoices table not ready:", error.message);
+        return;
+      }
+      setSavedInvoices(data || []);
+    } catch (err) {
+      console.error("fetchInvoices error:", err);
+    }
+  };
+
+  const handleSaveInvoice = async () => {
+    if (invoiceJobIds.length === 0) {
+      showNotification("Select at least one job", "error");
+      return;
+    }
+    setIsSavingInvoice(true);
+    try {
+      let invoiceNumber: string;
+      let saveError: any;
+
+      if (editingInvoiceId) {
+        // UPDATE existing invoice
+        invoiceNumber =
+          savedInvoices.find((i) => i.id === editingInvoiceId)
+            ?.invoice_number || "";
+        const { error } = await (supabase.from("vendor_invoices") as any)
+          .update({
+            note: invoiceNote || null,
+            job_ids: invoiceJobIds,
+            total_amount: invoiceTotalAmount,
+            total_commission: invoiceTotalCommission,
+            net_total: invoiceTotalAmount - invoiceTotalCommission,
+          })
+          .eq("id", editingInvoiceId);
+        saveError = error;
+      } else {
+        // INSERT new invoice
+        const _now = new Date();
+        const _yyyymmdd =
+          _now.getFullYear().toString() +
+          String(_now.getMonth() + 1).padStart(2, "0") +
+          String(_now.getDate()).padStart(2, "0");
+        const _seq = String(savedInvoices.length + 1).padStart(4, "0");
+        invoiceNumber = `INV-${_yyyymmdd}-${_seq}`;
+        const { error } = await (
+          supabase.from("vendor_invoices") as any
+        ).insert({
+          vendor_id: id,
+          invoice_number: invoiceNumber,
+          note: invoiceNote || null,
+          job_ids: invoiceJobIds,
+          total_amount: invoiceTotalAmount,
+          total_commission: invoiceTotalCommission,
+          net_total: invoiceTotalAmount - invoiceTotalCommission,
+        });
+        saveError = error;
+      }
+
+      if (saveError) {
+        // Extract full Supabase error details
+        const detail =
+          saveError.message ||
+          saveError.details ||
+          saveError.hint ||
+          saveError.code ||
+          JSON.stringify(saveError);
+        console.error("Save invoice error:", {
+          message: saveError.message,
+          details: saveError.details,
+          hint: saveError.hint,
+          code: saveError.code,
+        });
+        showNotification(
+          detail.includes("relation") || detail.includes("does not exist")
+            ? "Table not found ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â run the SQL migration in Supabase first"
+            : detail || "Failed to save invoice",
+          "error",
+        );
+        return;
+      }
+      await fetchInvoices();
+      showNotification(
+        editingInvoiceId
+          ? `Invoice ${invoiceNumber} updated!`
+          : `Invoice ${invoiceNumber} saved!`,
+      );
+      closeInvoiceModal();
+    } catch (err: any) {
+      const detail = err?.message || err?.details || JSON.stringify(err);
+      console.error("Save invoice catch error:", err);
+      showNotification(detail || "Failed to save invoice", "error");
+    } finally {
+      setIsSavingInvoice(false);
+    }
+  };
+
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    try {
+      const { error } = await (supabase.from("vendor_invoices") as any)
+        .delete()
+        .eq("id", invoiceId);
+      if (error) throw error;
+      setSavedInvoices((prev) => prev.filter((inv) => inv.id !== invoiceId));
+      showNotification("Invoice deleted");
+    } catch (err: any) {
+      showNotification(err.message || "Failed to delete", "error");
     }
   };
 
   useEffect(() => {
-    let mounted = true;
-
-    const timeout = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn("VendorDetailPage: Loading timeout triggered");
-        setLoading(false);
-      }
-    }, 5000);
-
-    fetchData().then(() => {
-      if (mounted) {
-        setLoading(false);
-        clearTimeout(timeout);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      clearTimeout(timeout);
-    };
+    fetchData();
+    fetchPayments();
+    fetchInvoices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -218,408 +656,621 @@ export default function VendorDetailPage({
       </div>
     );
 
+  const selectedInvoiceJobs = recentJobs.filter((j) =>
+    invoiceJobIds.includes(j.id),
+  );
+  const filteredJobsForInvoice = recentJobs.filter((j) => {
+    const ps = getJobPaymentStatus(j.id);
+    return (
+      ps !== "Paid" &&
+      (j.service?.name || "")
+        .toLowerCase()
+        .includes(jobSearchQuery.toLowerCase())
+    );
+  });
+  // For Partially Paid jobs use remaining amount, for others use full amount
+  const invoiceTotalAmount = selectedInvoiceJobs.reduce(
+    (s, j) => s + getJobRemainingAmount(j.id),
+    0,
+  );
+  const invoiceTotalCommission = selectedInvoiceJobs.reduce(
+    (s, j) => s + Number(j.commission_amount || 0),
+    0,
+  );
+
+  // Group payments by payment_number for list view (one row per payment session)
+  const groupedPayments = (() => {
+    const seen = new Set<string>();
+    const result: any[] = [];
+    for (const p of payments) {
+      const key = p.payment_number || p.id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const group = p.payment_number
+        ? payments.filter((r) => r.payment_number === p.payment_number)
+        : [p];
+      result.push({
+        ...p,
+        _totalAmount: group.reduce((s, r) => s + Number(r.amount || 0), 0),
+        _invoiceNumbers: group
+          .map((r) => r.invoice?.invoice_number)
+          .filter(Boolean) as string[],
+        _allIds: group.map((r) => r.id) as string[],
+      });
+    }
+    return result;
+  })();
   return (
     <div className="min-h-screen bg-[#f1f5f9] text-slate-800 lg:ml-[var(--sidebar-offset)]">
       <div className="w-full px-4 py-6 lg:px-6">
         {/* Header Section */}
-        <div className="mb-2 space-y-2">
-          <button
-            onClick={() => router.back()}
-            className="group flex items-center space-x-2 text-gray-600 hover:text-indigo-600 transition-colors"
-          >
-            <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center group-hover:bg-indigo-50 group-hover:border-indigo-100 transition-all">
-              <ArrowLeft size={14} />
-            </div>
-            <span className="text-sm font-medium">Back to Vendors</span>
-          </button>
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <button
+              onClick={() => router.back()}
+              className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-100 transition-all shadow-sm shrink-0"
+            >
+              <ArrowLeft size={18} />
+            </button>
 
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-2 flex-1">
-                <div className="w-8 h-8 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-center">
-                  <Building2 size={18} className="text-indigo-600" />
-                </div>
-                <div className="flex-1 justify-center">
-                  <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <h1 className="text-2xl font-bold text-gray-900">
-                      {vendor.studio_name}
-                    </h1>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <User size={14} className="mr-2 text-gray-400" />
-                      <span>{vendor.contact_person}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Smartphone size={14} className="mr-2 text-gray-400" />
-                      <span>{vendor.mobile}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Mail size={14} className="mr-2 text-gray-400" />
-                      <span>{vendor.email || "Not provided"}</span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <MapPin size={14} className="mr-2 text-gray-400" />
-                      <span>{vendor.location || "Not specified"}</span>
-                    </div>
-                  </div>
-                </div>
+            <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+              {vendor.studio_name}
+            </h1>
+
+            <div className="hidden sm:block h-6 w-px bg-gray-200"></div>
+
+            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+              <div className="flex items-center">
+                <User size={14} className="mr-1.5 text-gray-400" />
+                <span>{vendor.contact_person}</span>
               </div>
-              <Tooltip text="Edit Vendor">
-                <button
-                  onClick={handleOpenEditModal}
-                  className="ml-4 w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shrink-0"
-                  title="Edit Vendor"
-                >
-                  <Edit2 size={16} />
-                </button>
-              </Tooltip>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-full mx-auto pb-4">
-          {/* Studio Information Card - Combined Notes & Job History */}
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-            {/* Studio Notes Section */}
-            <div className="p-4 border-b border-gray-200">
-              <h3 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-                <FileText size={14} className="mr-2 text-gray-500" />
-                Studio Notes
-              </h3>
-              <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
-                <p className="text-sm text-gray-700 leading-relaxed">
-                  {vendor.notes || "No additional notes for this vendor."}
-                </p>
+              <div className="flex items-center">
+                <Smartphone size={14} className="mr-1.5 text-gray-400" />
+                <span>{vendor.mobile}</span>
               </div>
-            </div>
-
-            {/* Job History Section */}
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-              <h2 className="text-base font-semibold text-gray-900">
-                Job History
-              </h2>
-              <div className="bg-indigo-600 px-3 py-1 rounded-md text-white text-xs font-medium">
-                {recentJobs.length} Jobs
-              </div>
-            </div>
-
-            <div className="flex-1">
-              {recentJobs.length === 0 ? (
-                <div className="p-10 text-center">
-                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3 text-gray-400">
-                    <ClipboardList size={20} />
-                  </div>
-                  <p className="text-sm text-gray-500">
-                    No jobs associated with this studio yet.
-                  </p>
+              {vendor.email && (
+                <div className="flex items-center">
+                  <Mail size={14} className="mr-1.5 text-gray-400" />
+                  <span>{vendor.email}</span>
                 </div>
-              ) : (
-                <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto custom-scrollbar">
-                  {recentJobs.map((job) => (
-                    <div
-                      key={job.id}
-                      onClick={() => {
-                        setSelectedJob({ ...job, vendor: vendor });
-                        setShowViewModal(true);
-                      }}
-                      className="px-4 py-3 hover:bg-gray-50 transition-all cursor-pointer group flex items-center justify-between"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div
-                          className={`w-9 h-9 rounded-md flex items-center justify-center border transition-all ${
-                            job.status === "COMPLETED"
-                              ? "bg-emerald-50 border-emerald-200 text-emerald-600"
-                              : job.status === "PENDING"
-                                ? "bg-amber-50 border-amber-200 text-amber-600"
-                                : "bg-indigo-50 border-indigo-200 text-indigo-600"
-                          }`}
-                        >
-                          {job.status === "COMPLETED" ? (
-                            <CheckCircle2 size={16} />
-                          ) : job.status === "PENDING" ? (
-                            <Clock size={16} />
-                          ) : (
-                            <Zap size={16} />
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center space-x-2 mb-1">
-                            <p className="text-sm font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">
-                              {job.service?.name}
-                            </p>
-                            <Badge color={getStatusColor(job.status) as any}>
-                              {getStatusLabel(job.status)}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center space-x-3 text-xs text-gray-500">
-                            <div className="flex items-center">
-                              <Calendar size={12} className="mr-1" />
-                              {new Date(job.created_at).toLocaleDateString(
-                                "en-IN",
-                                {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                },
-                              )}
-                            </div>
-                            <span className="text-gray-300">•</span>
-                            <div className="flex items-center">
-                              <User size={12} className="mr-1" />
-                              {job.staff?.name || "Unassigned"}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <div className="text-right mr-3 hidden sm:block">
-                          <p className="text-sm font-medium text-gray-900">
-                            {formatCurrency(job.amount)}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Comm: {formatCurrency(job.commission_amount)}
-                          </p>
-                        </div>
-                        <Tooltip text="View Details" position="left">
-                          <button className="w-8 h-8 rounded-md bg-white border border-gray-200 flex items-center justify-center text-gray-400 group-hover:text-indigo-600 group-hover:border-indigo-200 group-hover:bg-indigo-50 transition-all">
-                            <Eye size={14} />
-                          </button>
-                        </Tooltip>
-                      </div>
-                    </div>
-                  ))}
+              )}
+              {vendor.location && (
+                <div className="flex items-center">
+                  <MapPin size={14} className="mr-1.5 text-gray-400" />
+                  <span>{vendor.location}</span>
                 </div>
               )}
             </div>
           </div>
+
+          <button
+            onClick={handleOpenEditModal}
+            className="w-10 h-10 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center justify-center shrink-0"
+            title="Edit Vendor"
+          >
+            <Edit2 size={18} />
+          </button>
+        </div>
+
+        <div className="max-w-full mx-auto pb-4 space-y-6">
+          {/* Studio Notes */}
+          {vendor.notes && (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm px-4 py-3">
+              <p className="text-sm text-gray-700">
+                <span className="font-medium text-gray-900">
+                  Studio Notes :{" "}
+                </span>{" "}
+                {vendor.notes}
+              </p>
+            </div>
+          )}
+
+          {/* Tab Bar */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center space-x-1 bg-white p-1.5 rounded-lg border border-gray-200 w-fit shadow-sm">
+              <button
+                onClick={() => setActiveTab("jobs")}
+                className={`px-4 py-2 text-sm font-medium flex items-center space-x-2 rounded-md transition-all ${
+                  activeTab === "jobs"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-indigo-600"
+                }`}
+              >
+                <LayoutList size={16} />
+                <span>Job History</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("payments")}
+                className={`px-4 py-2 text-sm font-medium flex items-center space-x-2 rounded-md transition-all ${
+                  activeTab === "payments"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-indigo-600"
+                }`}
+              >
+                <Wallet size={16} />
+                <span>Payment</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("invoice")}
+                className={`px-4 py-2 text-sm font-medium flex items-center space-x-2 rounded-md transition-all ${
+                  activeTab === "invoice"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-indigo-600"
+                }`}
+              >
+                <Receipt size={16} />
+                <span>Invoice</span>
+              </button>
+            </div>
+          </div>
+
+          {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ JOB HISTORY TAB ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+          {activeTab === "jobs" && (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-in fade-in duration-300">
+              <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                <h2 className="text-base font-semibold text-gray-900">
+                  Job History
+                </h2>
+                <div className="bg-indigo-600 px-3 py-1 rounded-md text-white text-xs font-medium">
+                  {recentJobs.length} Jobs
+                </div>
+              </div>
+
+              <Table
+                columns={[
+                  { key: "service", header: "Service" },
+                  { key: "staff", header: "Staff" },
+                  { key: "due_date", header: "Due Date" },
+                  { key: "status", header: "Status" },
+                  { key: "payment_status", header: "Payment Status" },
+                  { key: "amount", header: "Amount", align: "right" },
+                  { key: "commission", header: "Commission", align: "right" },
+                ]}
+                data={recentJobs}
+                emptyIcon={
+                  <ClipboardList size={20} className="text-gray-400" />
+                }
+                emptyMessage="No jobs associated with this studio yet."
+                onRowClick={(job) => {
+                  setSelectedJob({ ...job, vendor });
+                  setShowViewModal(true);
+                }}
+                renderCell={(col, job) => {
+                  if (col.key === "service")
+                    return (
+                      <span className="font-medium text-gray-900">
+                        {job.service?.name}
+                      </span>
+                    );
+                  if (col.key === "staff")
+                    return (
+                      <div className="flex items-center text-gray-600">
+                        <User
+                          size={13}
+                          className="mr-1.5 text-gray-400 shrink-0"
+                        />
+                        {job.staff?.name || "Unassigned"}
+                      </div>
+                    );
+                  if (col.key === "due_date")
+                    return (
+                      <div className="flex items-center text-gray-600">
+                        <Calendar
+                          size={13}
+                          className="mr-1.5 text-gray-400 shrink-0"
+                        />
+                        {new Date(job.job_due_date).toLocaleDateString(
+                          "en-IN",
+                          { day: "2-digit", month: "short", year: "numeric" },
+                        )}
+                      </div>
+                    );
+                  if (col.key === "status")
+                    return (
+                      <Badge color={getStatusColor(job.status) as any}>
+                        {getStatusLabel(job.status)}
+                      </Badge>
+                    );
+                  if (col.key === "payment_status") {
+                    const ps = getJobPaymentStatus(job.id);
+                    const styles =
+                      ps === "Paid"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : ps === "Partially Paid"
+                          ? "bg-amber-50 text-amber-700 border-amber-200"
+                          : "bg-gray-100 text-gray-500 border-gray-200";
+                    return (
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs font-medium ${styles}`}
+                      >
+                        {ps}
+                      </span>
+                    );
+                  }
+                  if (col.key === "amount")
+                    return (
+                      <span className="font-medium text-gray-900">
+                        {formatCurrency(job.amount)}
+                      </span>
+                    );
+                  if (col.key === "commission")
+                    return (
+                      <span className="inline-flex items-center px-2 py-0.5 bg-rose-50 text-rose-600 rounded-md border border-rose-100 text-xs font-medium">
+                        {formatCurrency(job.commission_amount)}
+                      </span>
+                    );
+                  return null;
+                }}
+              />
+            </div>
+          )}
+
+          {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ PAYMENT TAB ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+          {activeTab === "payments" && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-medium text-gray-500">
+                      Total Payable
+                    </h3>
+                    <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                      <Banknote size={20} />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline">
+                    <span className="text-2xl font-bold text-gray-900">
+                      {formatCurrency(paymentStats.totalPayable)}
+                    </span>
+                    <span className="ml-2 text-xs text-gray-500">
+                      Total Jobs
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-medium text-gray-500">
+                      Total Paid
+                    </h3>
+                    <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                      <Wallet size={20} />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline">
+                    <span className="text-2xl font-bold text-emerald-600">
+                      {formatCurrency(paymentStats.totalPaid)}
+                    </span>
+                    <span className="ml-2 text-xs text-gray-500">
+                      Disbursed
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-medium text-gray-500">
+                      Pending Amount
+                    </h3>
+                    <div className="p-2 bg-amber-50 rounded-lg text-amber-600">
+                      <History size={20} />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline">
+                    <span className="text-2xl font-bold text-amber-600">
+                      {formatCurrency(paymentStats.remaining)}
+                    </span>
+                    <span className="ml-2 text-xs text-gray-500">
+                      Remaining
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payments Table */}
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                  <h2 className="text-base font-semibold text-gray-900">
+                    Payment History
+                  </h2>
+                  <button
+                    onClick={() => setShowPaymentModal(true)}
+                    className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+                  >
+                    <Plus size={16} />
+                    <span>Add Payment</span>
+                  </button>
+                </div>
+
+                <Table
+                  columns={[
+                    { key: "payment_number", header: "Payment #" },
+                    { key: "date", header: "Date" },
+                    { key: "amount", header: "Amount" },
+                    { key: "invoice", header: "Invoice" },
+                    { key: "note", header: "Note" },
+                    { key: "actions", header: "Actions", align: "right" },
+                  ]}
+                  data={groupedPayments}
+                  emptyMessage="No payments recorded yet."
+                  onRowClick={(p) => setViewingPayment(p)}
+                  renderCell={(col, payment) => {
+                    if (col.key === "payment_number")
+                      return payment.payment_number ? (
+                        <span className="text-xs font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                          {payment.payment_number}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 italic text-xs">—</span>
+                      );
+                    if (col.key === "date")
+                      return (
+                        <div className="flex items-center text-gray-600">
+                          <Calendar size={13} className="mr-2 text-gray-400" />
+                          {new Date(payment.payment_date).toLocaleDateString(
+                            "en-IN",
+                            { day: "2-digit", month: "short", year: "numeric" },
+                          )}
+                        </div>
+                      );
+                    if (col.key === "amount")
+                      return (
+                        <span className="font-medium text-gray-900">
+                          {formatCurrency(
+                            payment._totalAmount ?? payment.amount,
+                          )}
+                        </span>
+                      );
+                    if (col.key === "invoice") {
+                      const nums = (payment._invoiceNumbers as string[]) ?? [];
+                      if (nums.length === 0)
+                        return (
+                          <span className="text-gray-400 italic text-xs">
+                            —
+                          </span>
+                        );
+                      return (
+                        <div className="flex flex-wrap gap-1">
+                          {nums.map((n) => (
+                            <span
+                              key={n}
+                              className="text-xs font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded"
+                            >
+                              {n}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    }
+                    if (col.key === "note")
+                      return (
+                        <span className="text-gray-600">
+                          {payment.note || (
+                            <span className="text-gray-400"></span>
+                          )}
+                        </span>
+                      );
+                    if (col.key === "actions")
+                      return (
+                        <Tooltip text="Delete Payment">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeletePaymentId(
+                                payment._allIds ?? [payment.id],
+                              );
+                            }}
+                            className="w-7 h-7 flex items-center justify-center text-rose-400 hover:text-rose-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </Tooltip>
+                      );
+                    return null;
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ INVOICE TAB ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+          {activeTab === "invoice" && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Saved Invoices Table ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */}
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <FileCheck size={16} className="text-indigo-600" />
+                    <h2 className="text-base font-semibold text-gray-900">
+                      Saved Invoices
+                    </h2>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs bg-indigo-600 text-white px-2.5 py-1 rounded-md font-medium">
+                      {savedInvoices.length} Invoices
+                    </span>
+                    <button
+                      onClick={() => setShowInvoiceModal(true)}
+                      className="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors shadow-sm"
+                    >
+                      <Plus size={14} />
+                      <span>Add Invoice</span>
+                    </button>
+                  </div>
+                </div>
+                <Table
+                  columns={[
+                    { key: "invoice_number", header: "Invoice #" },
+                    { key: "date", header: "Date" },
+                    { key: "jobs", header: "Jobs" },
+                    { key: "net_total", header: "Total", align: "right" },
+                    { key: "action", header: "Action", align: "right" },
+                  ]}
+                  data={savedInvoices}
+                  emptyMessage='No invoices saved yet. Click "Add Invoice" to create one.'
+                  onRowClick={(inv) => setViewingInvoice(inv)}
+                  renderCell={(col, inv) => {
+                    if (col.key === "invoice_number")
+                      return (
+                        <span className="text-xs font-semibold text-gray-900 px-2 py-1 bg-indigo-50 rounded-md">
+                          {inv.invoice_number}
+                        </span>
+                      );
+                    if (col.key === "date")
+                      return (
+                        <span className="text-gray-600">
+                          {new Date(inv.created_at).toLocaleDateString(
+                            "en-IN",
+                            { day: "2-digit", month: "short", year: "numeric" },
+                          )}
+                        </span>
+                      );
+                    if (col.key === "jobs")
+                      return (
+                        <span className="inline-flex items-center space-x-1 text-gray-600">
+                          <CheckSquare size={13} className="text-indigo-500" />
+                          <span>
+                            {inv.job_ids?.length || 0} job
+                            {(inv.job_ids?.length || 0) !== 1 ? "s" : ""}
+                          </span>
+                        </span>
+                      );
+                    if (col.key === "net_total")
+                      return (
+                        <span className="font-semibold text-indigo-700">
+                          {formatCurrency(inv.total_amount)}
+                        </span>
+                      );
+                    if (col.key === "action")
+                      return (
+                        <div className="flex items-center justify-end space-x-1">
+                          <Tooltip text="Edit Invoice">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditInvoiceModal(inv);
+                              }}
+                              className="w-7 h-7 flex items-center justify-center text-sky-400 hover:text-sky-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                          </Tooltip>
+                          <Tooltip text="Print Invoice">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePrintSavedInvoice(inv);
+                              }}
+                              className="w-7 h-7 flex items-center justify-center text-emerald-400 hover:text-emerald-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
+                            >
+                              <Printer size={13} />
+                            </button>
+                          </Tooltip>
+                          <Tooltip text="Delete Invoice">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmDeleteInvoiceId(inv.id);
+                              }}
+                              className="w-7 h-7 flex items-center justify-center text-rose-400 hover:text-rose-600 hover:bg-white rounded-lg transition-all border border-transparent hover:border-slate-100 shadow-sm"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </Tooltip>
+                        </div>
+                      );
+                    return null;
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* View Modal */}
-      {showViewModal && selectedJob && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"
-            onClick={() => setShowViewModal(false)}
-          />
-          <div className="bg-white w-full max-w-4xl rounded-lg shadow-xl relative overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white">
-              <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 bg-white border border-slate-200 rounded-lg flex items-center justify-center shadow-sm">
-                  <ClipboardList size={20} className="text-indigo-600" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 leading-none mb-1">
-                    {selectedJob.service?.name}
-                  </h2>
-                  <div className="flex items-center text-xs text-gray-500">
-                    <Building2 size={12} className="mr-1.5 text-gray-400" />
-                    {selectedJob.vendor?.studio_name}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => setShowViewModal(false)}
-                  className="w-8 h-8 flex items-center justify-center bg-white border border-gray-200 text-gray-500 hover:text-rose-600 hover:border-rose-200 rounded-md transition-all"
-                  title="Close"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
+      {/*  Invoice Detail Modal  */}
+      <InvoiceDetailModal
+        isOpen={viewingInvoice !== null}
+        onClose={() => setViewingInvoice(null)}
+        invoice={viewingInvoice}
+        vendor={vendor}
+        jobs={recentJobs}
+        getJobRemainingAmount={getJobRemainingAmount}
+        onEdit={(inv) => {
+          setViewingInvoice(null);
+          openEditInvoiceModal(inv);
+        }}
+        onPrint={(inv) => {
+          setViewingInvoice(null);
+          handlePrintSavedInvoice(inv);
+        }}
+      />
 
-            <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                <div className="lg:col-span-8 space-y-4">
-                  <div className="space-y-4">
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-medium text-gray-900">
-                        General Details
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md border border-gray-200">
-                          <div className="w-8 h-8 rounded-md bg-white border border-gray-200 flex items-center justify-center text-gray-500">
-                            <User size={16} />
-                          </div>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="text-xs font-medium text-gray-600">
-                              Assigned To
-                            </span>
-                            <span className="text-sm font-normal text-gray-900 truncate">
-                              {selectedJob.staff?.name || "Unassigned"}
-                            </span>
-                          </div>
-                        </div>
+      {/*  Add Invoice Modal  */}
+      <InvoiceModal
+        isOpen={showInvoiceModal}
+        onClose={closeInvoiceModal}
+        editingInvoiceId={editingInvoiceId}
+        vendor={vendor}
+        invoiceJobIds={invoiceJobIds}
+        invoiceNote={invoiceNote}
+        setInvoiceNote={setInvoiceNote}
+        jobSearchQuery={jobSearchQuery}
+        setJobSearchQuery={setJobSearchQuery}
+        showJobDropdown={showJobDropdown}
+        setShowJobDropdown={setShowJobDropdown}
+        toggleInvoiceJob={toggleInvoiceJob}
+        handleSaveInvoice={handleSaveInvoice}
+        isSavingInvoice={isSavingInvoice}
+        selectedInvoiceJobs={selectedInvoiceJobs}
+        filteredJobsForInvoice={filteredJobsForInvoice}
+        invoiceTotalAmount={invoiceTotalAmount}
+        invoiceTotalCommission={invoiceTotalCommission}
+        getStatusLabel={getStatusLabel}
+        getJobRemainingAmount={getJobRemainingAmount}
+      />
 
-                        <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md border border-gray-200">
-                          <div className="w-8 h-8 rounded-md bg-white border border-gray-200 flex items-center justify-center text-gray-500">
-                            <Building2 size={16} />
-                          </div>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="text-xs font-medium text-gray-600">
-                              Studio Contact
-                            </span>
-                            <div className="flex flex-col">
-                              <span className="text-sm font-normal text-gray-900 truncate">
-                                {selectedJob.vendor?.contact_person || "N/A"}
-                              </span>
-                              {selectedJob.vendor?.email && (
-                                <span className="text-xs text-gray-600 leading-none mt-0.5">
-                                  {selectedJob.vendor?.email}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+      {/*  Print Invoice Modal  */}
+      <PrintInvoiceModal
+        isOpen={showPrintInvoiceModal}
+        onClose={() => setShowPrintInvoiceModal(false)}
+        invoice={printInvoiceData}
+        vendor={vendor}
+        recentJobs={recentJobs}
+      />
 
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-                        <FileText size={14} className="mr-2 text-indigo-500" />
-                        Work Description
-                      </h3>
-                      <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
-                        <p className="text-sm font-normal text-gray-900 leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere">
-                          {selectedJob.description ||
-                            "No description provided."}
-                        </p>
-                      </div>
-                    </div>
+      {/* Job View Modal */}
+      <JobViewModal
+        isOpen={showViewModal}
+        job={selectedJob}
+        onClose={() => setShowViewModal(false)}
+        handleStatusUpdate={handleStatusUpdate}
+      />
 
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-medium text-gray-900">
-                        Location
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-md border border-gray-200">
-                          <div className="w-8 h-8 rounded-md bg-white border border-gray-200 flex items-center justify-center text-gray-500 shrink-0">
-                            <MapPin size={16} />
-                          </div>
-                          <div className="flex flex-col min-w-0 pt-0.5">
-                            <span className="text-xs font-medium text-gray-600 mb-1">
-                              Job Data Location
-                            </span>
-                            <span className="text-sm font-normal text-gray-900 whitespace-pre-wrap leading-tight break-words overflow-wrap-anywhere">
-                              {selectedJob.data_location || "Pending"}
-                            </span>
-                          </div>
-                        </div>
+      {/* Payment Detail Modal */}
+      <PaymentDetailModal
+        isOpen={viewingPayment !== null}
+        onClose={() => setViewingPayment(null)}
+        payment={viewingPayment}
+        payments={payments}
+        savedInvoices={savedInvoices}
+        vendor={vendor}
+      />
 
-                        <div className="flex items-start space-x-3 p-3 bg-indigo-50 rounded-md border border-indigo-200">
-                          <div className="w-8 h-8 rounded-md bg-white border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0">
-                            <ExternalLink size={16} />
-                          </div>
-                          <div className="flex flex-col min-w-0 pt-0.5">
-                            <span className="text-xs font-medium text-indigo-600 mb-1">
-                              Job Final Location
-                            </span>
-                            <span className="text-sm font-normal text-indigo-900 whitespace-pre-wrap leading-tight break-words overflow-wrap-anywhere">
-                              {selectedJob.final_location || "Pending"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        paymentForm={paymentForm}
+        setPaymentForm={setPaymentForm}
+        handleAddPayment={handleAddPayment}
+        savedInvoices={savedInvoices}
+        recentJobs={recentJobs}
+        payments={payments}
+      />
 
-                <div className="lg:col-span-4 space-y-4">
-                  <div className="bg-gray-50 rounded-md border border-gray-200 p-4 space-y-3">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900 mb-3">
-                        Production Status
-                      </h3>
-                      <div className="space-y-2">
-                        <button
-                          onClick={() =>
-                            handleStatusUpdate(selectedJob.id, "PENDING")
-                          }
-                          className={`w-full py-2 px-4 flex items-center justify-center rounded-md transition-all space-x-2 border ${selectedJob.status === "PENDING" ? "bg-amber-400 text-white border-amber-500" : "bg-white text-gray-600 border-gray-300"}`}
-                        >
-                          <Clock size={12} />
-                          <span className="text-xs font-medium">Pending</span>
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleStatusUpdate(selectedJob.id, "IN_PROGRESS")
-                          }
-                          className={`w-full py-2 px-4 flex items-center justify-center rounded-md transition-all space-x-2 border ${selectedJob.status === "IN_PROGRESS" ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-gray-600 border-gray-300"}`}
-                        >
-                          <Zap size={12} />
-                          <span className="text-xs font-medium">
-                            In-Progress
-                          </span>
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleStatusUpdate(selectedJob.id, "COMPLETED")
-                          }
-                          className={`w-full py-2 px-4 flex items-center justify-center rounded-md transition-all space-x-2 border ${selectedJob.status === "COMPLETED" ? "bg-emerald-500 text-white border-emerald-600" : "bg-white text-gray-600 border-gray-300"}`}
-                        >
-                          <CheckCircle2 size={12} />
-                          <span className="text-xs font-medium">Complete</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="pt-3 border-t border-gray-200">
-                      <p className="text-xs font-medium text-gray-600 mb-1">
-                        Production Deadline
-                      </p>
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="text-rose-500" size={14} />
-                        <p className="text-base font-medium text-rose-600">
-                          {new Date(
-                            selectedJob.job_due_date,
-                          ).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="pt-3 border-t border-gray-200 space-y-2">
-                      <h3 className="text-xs font-medium text-gray-600 mb-2">
-                        Financial Summary
-                      </h3>
-                      <div className="flex justify-between items-end">
-                        <div>
-                          <p className="text-xl font-medium text-gray-900">
-                            {formatCurrency(selectedJob.amount)}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs font-medium text-gray-600 mb-0.5">
-                            Commission
-                          </p>
-                          <div className="inline-flex items-center px-2 py-0.5 bg-rose-50 text-rose-600 rounded-md border border-rose-100 text-xs font-medium">
-                            -{formatCurrency(selectedJob.commission_amount)}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
-                        <span className="text-xs font-medium text-gray-600">
-                          Net Profit
-                        </span>
-                        <span className="text-base font-medium text-indigo-600">
-                          {formatCurrency(
-                            Number(selectedJob.amount || 0) -
-                              Number(selectedJob.commission_amount || 0),
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Edit Vendor Modal */}
       <VendorForm
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
@@ -627,19 +1278,60 @@ export default function VendorDetailPage({
         formData={editFormData}
         setFormData={setEditFormData}
         isEditing={true}
+        isLoading={isSubmitting}
+      />
+
+      {/* Delete Payment Confirmation */}
+      <ConfirmationDialog
+        open={!!confirmDeletePaymentId}
+        title="Delete Payment"
+        message="Are you sure you want to delete this payment? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={() => {
+          if (confirmDeletePaymentId)
+            handleDeletePayment(confirmDeletePaymentId);
+          setConfirmDeletePaymentId(null);
+        }}
+        onCancel={() => setConfirmDeletePaymentId(null)}
+      />
+
+      {/* Delete Invoice Confirmation */}
+      <ConfirmationDialog
+        open={!!confirmDeleteInvoiceId}
+        title="Delete Invoice"
+        message="Are you sure you want to delete this invoice? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={() => {
+          if (confirmDeleteInvoiceId)
+            handleDeleteInvoice(confirmDeleteInvoiceId);
+          setConfirmDeleteInvoiceId(null);
+        }}
+        onCancel={() => setConfirmDeleteInvoiceId(null)}
       />
 
       {/* Notification Toast */}
       {notification && (
-        <div
-          className={`fixed bottom-8 right-8 z-[100] flex items-center space-x-3 px-4 py-3 rounded-lg shadow-lg transition-all duration-500 animate-in slide-in-from-bottom-10 ${notification.type === "success" ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"}`}
-        >
-          {notification.type === "success" ? (
-            <CheckCircle2 size={20} />
-          ) : (
-            <AlertCircle size={20} />
-          )}
-          <span className="text-sm font-medium">{notification.message}</span>
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+          <div
+            className={`flex items-center space-x-3 px-6 py-3 rounded-2xl shadow-2xl border ${
+              notification.type === "success"
+                ? "bg-emerald-500 border-emerald-400 text-white"
+                : "bg-rose-500 border-rose-400 text-white"
+            }`}
+          >
+            {notification.type === "success" ? (
+              <CheckCircle2 size={18} className="text-white" />
+            ) : (
+              <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold text-white">
+                !
+              </div>
+            )}
+            <p className="text-[11px] font-black uppercase tracking-widest">
+              {notification.message}
+            </p>
+          </div>
         </div>
       )}
     </div>

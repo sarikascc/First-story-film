@@ -29,7 +29,7 @@ export default function Table({
     rowClassName
 }: TableProps) {
     return (
-        <div className="overflow-x-auto relative">
+        <div className="relative">
             {loading && data.length === 0 ? (
                 <div className="h-32 flex items-center justify-center w-full">
                     <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
@@ -83,7 +83,7 @@ export default function Table({
                                     {columns.map((column) => (
                                         <td
                                             key={column.key}
-                                            className={`px-4 py-1.5 text-xs ${
+                                            className={`px-4 py-1.5 text-sm ${
                                                 column.align === 'center' ? 'text-center' :
                                                 column.align === 'right' ? 'text-right' : ''
                                             } ${column.className || ''}`}

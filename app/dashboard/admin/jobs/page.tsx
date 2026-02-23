@@ -1477,6 +1477,7 @@ export default function JobsPage() {
         formData={vendorFormData}
         setFormData={setVendorFormData}
         isEditing={false}
+        isLoading={modalLoading}
       />
     </div>
   );

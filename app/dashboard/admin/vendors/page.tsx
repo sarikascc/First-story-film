@@ -40,6 +40,7 @@ export default function VendorsPage() {
   } | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     studio_name: "",
@@ -138,7 +139,7 @@ export default function VendorsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setIsSubmitting(true);
 
     try {
       const {
@@ -186,7 +187,7 @@ export default function VendorsPage() {
 
       setShowModal(false);
       resetForm();
-      setLoading(false);
+      setIsSubmitting(false);
       fetchVendors();
     } catch (error: unknown) {
       const message =
@@ -195,7 +196,7 @@ export default function VendorsPage() {
           : "Something went wrong while saving.";
       console.error("Error saving vendor:", error);
       showNotification(message, "error");
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -366,17 +367,11 @@ export default function VendorsPage() {
               }
               if (column.key === "contact_info") {
                 return (
-                  <div className="flex flex-col space-y-0.5">
+                  <div className="flex items-center">
                     <div className="flex items-center">
                       <Smartphone className="w-4 mr-2 text-sky-400" />
                       {vendor.mobile}
                     </div>
-                    {vendor.email && (
-                      <div className="flex items-center pl-6">
-                        {/* <Mail className=" mr-2 text-blue-400" /> */}
-                        {vendor.email}
-                      </div>
-                    )}
                   </div>
                 );
               }
@@ -439,6 +434,7 @@ export default function VendorsPage() {
         formData={formData}
         setFormData={setFormData}
         isEditing={!!editingVendor}
+        isLoading={isSubmitting}
       />
       <ConfirmationDialog
         open={showDeleteDialog}
