@@ -74,12 +74,14 @@ export default function VendorDetailPage({
 
   // Payment State
   const [payments, setPayments] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentForm, setPaymentForm] = useState<PaymentFormState>({
     invoice_ids: [],
     amount: "",
     date: new Date().toISOString().split("T")[0],
     note: "",
+    account_id: "",
   });
   const [paymentStats, setPaymentStats] = useState({
     totalPayable: 0,
@@ -239,6 +241,19 @@ export default function VendorDetailPage({
       if (vendorError) throw vendorError;
       setVendor(vendorData);
 
+      // Fetch accounts
+      const { data: accountsData } = await (supabase.from("accounts") as any)
+        .select("id, account_name, is_default")
+        .eq("status", "active")
+        .order("is_default", { ascending: false });
+      setAccounts(accountsData || []);
+      const defAccount =
+        (accountsData || []).find((a: any) => a.is_default) ||
+        (accountsData || [])[0];
+      if (defAccount) {
+        setPaymentForm((f) => ({ ...f, account_id: defAccount.id }));
+      }
+
       const { data: jobsData, error: jobsError } = await (
         supabase.from("jobs") as any
       )
@@ -395,6 +410,7 @@ export default function VendorDetailPage({
         payment_date: string;
         note: string | null;
         payment_number: string;
+        account_id?: string | null;
       }[] = [];
 
       if (paymentForm.invoice_ids.length > 0) {
@@ -430,6 +446,7 @@ export default function VendorDetailPage({
               payment_date: paymentForm.date,
               note: paymentForm.note || null,
               payment_number: paymentNumber,
+              account_id: paymentForm.account_id || null,
             };
           });
       } else {
@@ -440,6 +457,7 @@ export default function VendorDetailPage({
             payment_date: paymentForm.date,
             note: paymentForm.note || null,
             payment_number: paymentNumber,
+            account_id: paymentForm.account_id || null,
           },
         ];
       }
@@ -492,6 +510,8 @@ export default function VendorDetailPage({
         date: new Date().toISOString().split("T")[0],
         note: "",
         invoice_ids: [],
+        account_id:
+          accounts.find((a) => a.is_default)?.id || accounts[0]?.id || "",
       });
       const msg =
         jobIdsToComplete.length > 0
@@ -1268,6 +1288,7 @@ export default function VendorDetailPage({
         savedInvoices={savedInvoices}
         recentJobs={recentJobs}
         payments={payments}
+        accounts={accounts}
       />
 
       {/* Edit Vendor Modal */}

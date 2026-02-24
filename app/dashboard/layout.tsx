@@ -336,9 +336,9 @@ export default function DashboardLayout({
     { href: "/dashboard/admin/services", icon: Briefcase, label: "Services" },
     { href: "/dashboard/admin/staff", icon: Users, label: "Users" },
     { href: "/dashboard/admin/accounting", icon: BarChart3, label: "Accounting", subItems: [
-      { href: "/dashboard/admin/accounting?section=accounts", label: "Account Module", icon: Wallet },
-      { href: "/dashboard/admin/accounting?section=income", label: "Income Module", icon: TrendingUp },
-      { href: "/dashboard/admin/accounting?section=expense", label: "Expense Module", icon: TrendingDown },
+      { href: "/dashboard/admin/accounting?section=accounts", label: "Account", icon: Wallet },
+      { href: "/dashboard/admin/accounting?section=income", label: "Income ", icon: TrendingUp },
+      { href: "/dashboard/admin/accounting?section=expense", label: "Expense", icon: TrendingDown },
       { href: "/dashboard/admin/accounting?section=reports", label: "Ledger / Reports", icon: BookOpen },
     ] },
   ];

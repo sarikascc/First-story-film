@@ -851,9 +851,9 @@ function TransactionsList({
   notify: (m: string, t?: "success" | "error") => void;
 }) {
   const isIncome = type === "income";
-  // Expense uses the merged API, income uses the standard income API
+  // Both modules use merged APIs (manual + auto-generated transactions)
   const apiBase = isIncome
-    ? "/api/accounting/income"
+    ? "/api/accounting/income-all"
     : "/api/accounting/expenses-all";
   const manualApiBase = isIncome
     ? "/api/accounting/income"
@@ -900,7 +900,7 @@ function TransactionsList({
     if (category_id) qp.set("category_id", category_id);
     if (date_from) qp.set("date_from", date_from);
     if (date_to) qp.set("date_to", date_to);
-    if (!isIncome && source) qp.set("source", source);
+    if (source) qp.set("source", source);
 
     const [r1, r2, r3] = await Promise.all([
       fetch(`${apiBase}?${qp}`, { headers: h }),
@@ -1052,30 +1052,29 @@ function TransactionsList({
                 />
               </div>
             </div>
-            {!isIncome && (
-              <div>
-                <label className="text-xs font-medium text-slate-500 mb-1 block">
-                  Source
-                </label>
-                <div className="w-[170px]">
-                  <AestheticSelect
-                    heightClass="h-9"
-                    textSize="xs"
-                    options={[
-                      { id: "", name: "All Sources" },
-                      { id: "manual", name: "Manual Entry" },
-                      { id: "vendor_payment", name: "Vendor Payments" },
-                      { id: "staff_payment", name: "Staff Payments" },
-                    ]}
-                    value={filters.source}
-                    onChange={(v) => {
-                      setFilters((f) => ({ ...f, source: v }));
-                      setPage(1);
-                    }}
-                  />
-                </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1 block">
+                Source
+              </label>
+              <div className="w-[170px]">
+                <AestheticSelect
+                  heightClass="h-9"
+                  textSize="xs"
+                  options={[
+                    { id: "", name: "All Sources" },
+                    { id: "manual", name: "Manual Entry" },
+                    ...(isIncome
+                      ? [{ id: "vendor_payment", name: "Vendor Payments" }]
+                      : [{ id: "staff_payment", name: "Staff Payments" }]),
+                  ]}
+                  value={filters.source}
+                  onChange={(v) => {
+                    setFilters((f) => ({ ...f, source: v }));
+                    setPage(1);
+                  }}
+                />
               </div>
-            )}
+            </div>
             <div>
               <label className="text-xs font-medium text-slate-500 mb-1 block">
                 From Date
@@ -1118,9 +1117,7 @@ function TransactionsList({
         <Table
           columns={[
             { key: "date", header: "Date", align: "left" as const },
-            ...(!isIncome
-              ? [{ key: "source", header: "Source", align: "left" as const }]
-              : []),
+            { key: "source", header: "Source", align: "left" as const },
             { key: "account", header: "Account", align: "left" as const },
             {
               key: "category",
@@ -1798,15 +1795,15 @@ function AccountingContent() {
 
   const sectionMeta: Record<string, { label: string; desc: string }> = {
     accounts: {
-      label: "Account Module",
+      label: "Account",
       desc: "Manage your financial accounts",
     },
     income: {
-      label: "Income Module",
+      label: "Income",
       desc: "Track income transactions & categories",
     },
     expense: {
-      label: "Expense Module",
+      label: "Expense",
       desc: "Track expense transactions & categories",
     },
     reports: {

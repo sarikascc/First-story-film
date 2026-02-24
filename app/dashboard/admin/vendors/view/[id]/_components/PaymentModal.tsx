@@ -9,6 +9,7 @@ export interface PaymentFormState {
   date: string;
   note: string;
   invoice_ids: string[];
+  account_id: string;
 }
 
 interface PaymentModalProps {
@@ -20,6 +21,7 @@ interface PaymentModalProps {
   savedInvoices: any[];
   recentJobs: any[];
   payments: any[];
+  accounts: { id: string; account_name: string; is_default: boolean }[];
 }
 
 export default function PaymentModal({
@@ -30,6 +32,7 @@ export default function PaymentModal({
   handleAddPayment,
   savedInvoices,
   payments,
+  accounts,
 }: PaymentModalProps) {
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [showInvoiceDropdown, setShowInvoiceDropdown] = useState(false);
@@ -247,6 +250,29 @@ export default function PaymentModal({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Account */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Account <span className="text-rose-500">*</span>
+            </label>
+            <select
+              title="Account"
+              value={paymentForm.account_id}
+              onChange={(e) =>
+                setPaymentForm({ ...paymentForm, account_id: e.target.value })
+              }
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm h-10 border px-3"
+              required
+            >
+              <option value="">Select Account</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.account_name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Amount */}

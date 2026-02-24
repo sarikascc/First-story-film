@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     const categoryId = searchParams.get("category_id");
     const dateFrom = searchParams.get("date_from");
     const dateTo = searchParams.get("date_to");
-    const sourceFilter = searchParams.get("source"); // 'manual' | 'vendor_payment' | 'staff_payment' | ''
+    const sourceFilter = searchParams.get("source"); // 'manual' | 'staff_payment' | ''
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
 
@@ -61,7 +61,6 @@ export async function GET(request: Request) {
     if (categoryId) expQ = expQ.eq("expense_category_id", categoryId);
     if (dateFrom) expQ = expQ.gte("expense_date", dateFrom);
     if (dateTo) expQ = expQ.lte("expense_date", dateTo);
-    // Only filter by source if it's 'manual' or no filter — vendor/staff rows come from their own tables
     if (sourceFilter === "manual") expQ = expQ.eq("source", "manual");
 
     const { data: manualTxs, error: expError } = await expQ
@@ -71,35 +70,18 @@ export async function GET(request: Request) {
     if (expError)
       console.error("[expenses-all] manual query error:", expError.message);
 
-    // ── 2. Vendor payments (read-only) ──────────────────────────────────────
-    let vpQ = supabaseAdmin
-      .from("vendor_payments")
-      .select(
-        `id, payment_date, amount, note, vendor_id, vendors(id, studio_name)`,
-      );
-    if (dateFrom) vpQ = vpQ.gte("payment_date", dateFrom);
-    if (dateTo) vpQ = vpQ.lte("payment_date", dateTo);
-    const { data: vendorPayments, error: vpError } = await vpQ.order(
-      "payment_date",
-      { ascending: false },
-    );
-    if (vpError)
-      console.error(
-        "[expenses-all] vendor_payments query error:",
-        vpError.message,
-      );
-
-    // ── 3. Staff payments (read-only) ───────────────────────────────────────
+    // ── 2. Staff payments (read-only) ───────────────────────────────────────
     let spQ = supabaseAdmin
       .from("staff_payments")
       .select(`id, payment_date, amount, note, staff_id, users(id, name)`);
     if (dateFrom) spQ = spQ.gte("payment_date", dateFrom);
     if (dateTo) spQ = spQ.lte("payment_date", dateTo);
-    const { data: staffPayments } = await spQ.order("payment_date", {
-      ascending: false,
-    });
+    const { data: staffPayments } =
+      sourceFilter && sourceFilter !== "staff_payment"
+        ? { data: [] }
+        : await spQ.order("payment_date", { ascending: false });
 
-    // Also exclude manual entries if filter is vendor_payment or staff_payment
+    // Exclude manual entries if filter is staff_payment
     const filteredManual =
       sourceFilter && sourceFilter !== "manual" ? [] : manualTxs || [];
 
@@ -118,45 +100,24 @@ export async function GET(request: Request) {
       editable: false,
     }));
 
-    const vendorRows =
-      sourceFilter && sourceFilter !== "vendor_payment"
-        ? []
-        : (vendorPayments || []).map((p: any) => ({
-            id: p.id,
-            date: p.payment_date,
-            amount: Number(p.amount),
-            remarks: p.note || "",
-            source: "vendor_payment",
-            account: "—",
-            account_id: null,
-            category: "Vendor Payment",
-            created_by: "—",
-            ref_name: (p.vendors as any)?.studio_name || "—",
-            deletable: false,
-            editable: false,
-          }));
-
-    const staffRows =
-      sourceFilter && sourceFilter !== "staff_payment"
-        ? []
-        : (staffPayments || []).map((p: any) => ({
-            id: p.id,
-            date: p.payment_date,
-            amount: Number(p.amount),
-            remarks: p.note || "",
-            source: "staff_payment",
-            account: "—",
-            account_id: null,
-            category: "Staff Payment",
-            created_by: "—",
-            ref_name: (p.users as any)?.name || "—",
-            ref_sub: "",
-            deletable: false,
-            editable: false,
-          }));
+    const staffRows = (staffPayments || []).map((p: any) => ({
+      id: p.id,
+      date: p.payment_date,
+      amount: Number(p.amount),
+      remarks: p.note || "",
+      source: "staff_payment",
+      account: "—",
+      account_id: null,
+      category: "Staff Payment",
+      created_by: "—",
+      ref_name: (p.users as any)?.name || "—",
+      ref_sub: "",
+      deletable: false,
+      editable: false,
+    }));
 
     // Merge all, sort by date descending
-    const allRows = [...manualRows, ...vendorRows, ...staffRows].sort((a, b) =>
+    const allRows = [...manualRows, ...staffRows].sort((a, b) =>
       b.date.localeCompare(a.date),
     );
 

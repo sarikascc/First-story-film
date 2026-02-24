@@ -329,6 +329,11 @@ export default function VendorsPage() {
                 align: "left",
               },
               { key: "contact_info", header: "Contact Info", align: "left" },
+              {
+                key: "pending_amount",
+                header: "Pending Amount",
+                align: "right",
+              },
               { key: "actions", header: "Actions", align: "right" },
             ]}
             data={paginatedVendors}
@@ -373,6 +378,25 @@ export default function VendorsPage() {
                       {vendor.mobile}
                     </div>
                   </div>
+                );
+              }
+              if (column.key === "pending_amount") {
+                const amt = (vendor as any).pending_amount ?? 0;
+                return (
+                  <span
+                    className={`font-semibold tabular-nums ${
+                      amt < 0
+                        ? "text-rose-600"
+                        : amt > 0
+                          ? "text-amber-600"
+                          : "text-slate-400"
+                    }`}
+                  >
+                    {amt < 0 ? "-" : ""}₹
+                    {Math.abs(Number(amt)).toLocaleString("en-IN", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </span>
                 );
               }
               if (column.key === "actions") {
