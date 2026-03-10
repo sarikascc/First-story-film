@@ -206,47 +206,110 @@ export default function ReportsPage() {
 
   const handlePrint = () => window.print();
 
-  const handleExportCSV = () => {
+  const handleExportExcel = async () => {
     if (!data) return;
-    const rows: string[][] = [
-      ["Report Period", `${dateFrom} to ${dateTo}`],
-      [],
-      ["Summary", ""],
-      ["Total Income", String(data.totalIncome)],
-      ["Total Expense", String(data.totalExpense)],
-      ["Net Profit", String(data.netProfit)],
-      [
-        "Net Margin %",
-        data.totalIncome
-          ? ((data.netProfit / data.totalIncome) * 100).toFixed(2) + "%"
-          : "0%",
-      ],
-      [],
-      ["Income Category", "Amount"],
-      ...data.incomeByCategory.map((c) => [c.name, String(c.amount)]),
-      [],
-      ["Expense Category", "Amount"],
-      ...data.expenseByCategory.map((c) => [c.name, String(c.amount)]),
-      [],
-      ["Date", "Type", "Category", "Description", "Amount"],
-      ...transactions.map((t) => [
-        t.date,
-        t.type.toUpperCase(),
-        t.category,
-        t.ref_name
-          ? `${t.ref_name}${t.remarks ? " - " + t.remarks : ""}`
-          : t.remarks,
-        String(t.amount),
-      ]),
+    const ExcelJS = await import("exceljs");
+
+    const workbook = new ExcelJS.Workbook();
+    const headerFill = {
+      type: "pattern" as const,
+      pattern: "solid" as const,
+      fgColor: { argb: "FF4F46E5" },
+    };
+    const headerFont = {
+      color: { argb: "FFFFFFFF" },
+      bold: true,
+      size: 11,
+    };
+
+    const styleHeader = (ws: import("exceljs").Worksheet) => {
+      const headerRow = ws.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.fill = headerFill;
+        cell.font = headerFont;
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+      });
+      headerRow.height = 22;
+    };
+
+    const summarySheet = workbook.addWorksheet("Summary");
+    summarySheet.columns = [
+      { header: "Report Period From", key: "report_period_from", width: 18 },
+      { header: "Report Period To", key: "report_period_to", width: 18 },
+      { header: "Account Filter", key: "account_filter", width: 24 },
+      { header: "Total Income", key: "total_income", width: 16 },
+      { header: "Total Expense", key: "total_expense", width: 16 },
+      { header: "Net Profit", key: "net_profit", width: 16 },
+      { header: "Net Margin %", key: "net_margin_percent", width: 14 },
+      { header: "Generated At", key: "generated_at", width: 26 },
     ];
-    const csv = rows
-      .map((r) => r.map((cell) => `"${cell}"`).join(","))
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    summarySheet.addRow({
+      report_period_from: dateFrom,
+      report_period_to: dateTo,
+      account_filter: selectedAccount || "All Accounts",
+      total_income: data.totalIncome,
+      total_expense: data.totalExpense,
+      net_profit: data.netProfit,
+      net_margin_percent: data.totalIncome
+        ? Number(((data.netProfit / data.totalIncome) * 100).toFixed(2))
+        : 0,
+      generated_at: new Date().toISOString(),
+    });
+    styleHeader(summarySheet);
+
+    const incomeSheet = workbook.addWorksheet("Income Categories");
+    incomeSheet.columns = [
+      { header: "Category", key: "category", width: 28 },
+      { header: "Amount", key: "amount", width: 16 },
+    ];
+    data.incomeByCategory.forEach((c) =>
+      incomeSheet.addRow({ category: c.name, amount: c.amount }),
+    );
+    styleHeader(incomeSheet);
+
+    const expenseSheet = workbook.addWorksheet("Expense Categories");
+    expenseSheet.columns = [
+      { header: "Category", key: "category", width: 28 },
+      { header: "Amount", key: "amount", width: 16 },
+    ];
+    data.expenseByCategory.forEach((c) =>
+      expenseSheet.addRow({ category: c.name, amount: c.amount }),
+    );
+    styleHeader(expenseSheet);
+
+    const txSheet = workbook.addWorksheet("Transactions");
+    txSheet.columns = [
+      { header: "Date", key: "date", width: 14 },
+      { header: "Type", key: "type", width: 12 },
+      { header: "Account", key: "account", width: 24 },
+      { header: "Category", key: "category", width: 24 },
+      { header: "Reference Name", key: "reference_name", width: 24 },
+      { header: "Remarks", key: "remarks", width: 30 },
+      { header: "Source", key: "source", width: 18 },
+      { header: "Amount", key: "amount", width: 14 },
+    ];
+    transactions.forEach((t) =>
+      txSheet.addRow({
+        date: t.date,
+        type: t.type.toUpperCase(),
+        account: t.account || "—",
+        category: t.category || "—",
+        reference_name: t.ref_name || "",
+        remarks: t.remarks || "",
+        source: t.source || "",
+        amount: Number(t.amount || 0),
+      }),
+    );
+    styleHeader(txSheet);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `report_${dateFrom}_${dateTo}.csv`;
+    a.download = `report_${dateFrom}_${dateTo}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -283,11 +346,11 @@ export default function ReportsPage() {
             <Printer size={14} /> Print
           </button>
           <button
-            onClick={handleExportCSV}
+            onClick={handleExportExcel}
             disabled={!data}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            <Download size={14} /> Export CSV
+            <Download size={14} /> Export Excel
           </button>
         </div>
       </div>
@@ -334,7 +397,8 @@ export default function ReportsPage() {
                   { id: "", name: "All Accounts" },
                   ...(data?.accountBalances ?? []).map((acc) => ({
                     id: acc.id,
-                    name: acc.account_name + (acc.is_default ? " (Default)" : ""),
+                    name:
+                      acc.account_name + (acc.is_default ? " (Default)" : ""),
                   })),
                 ]}
                 value={selectedAccount}
