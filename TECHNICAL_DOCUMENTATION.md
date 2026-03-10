@@ -1,9 +1,11 @@
-# First Story Films - Technical Documentation
+# first story Production - Technical Documentation
 
 ## Project Overview
+
 Job management and commission tracking system for a video production studio. Manages staff, vendors, services, and jobs with automatic commission calculations.
 
 ## Tech Stack
+
 - **Framework**: Next.js 16.1.6 (App Router, React 19.2.3)
 - **Database**: Supabase PostgreSQL
 - **Authentication**: Supabase Auth (SSR with @supabase/ssr)
@@ -14,11 +16,13 @@ Job management and commission tracking system for a video production studio. Man
 ## Architecture
 
 ### Client-Server Setup
+
 - **Client**: `lib/supabase.ts` - Browser client with cookie management
 - **Server**: `lib/supabase-server.ts` - Admin client with service role key
 - **API Routes**: `/app/api/admin/*` - Server-side operations bypassing RLS
 
 ### Authentication Flow
+
 - Supabase Auth handles login/session
 - Role stored in `users` table (ADMIN, MANAGER, USER)
 - Dashboard layout (`app/dashboard/layout.tsx`) enforces auth & role-based routing
@@ -27,6 +31,7 @@ Job management and commission tracking system for a video production studio. Man
 ## Database Schema
 
 ### Core Tables
+
 1. **users** - Staff/Admin accounts
    - Fields: id, name, email, mobile, role (ADMIN|MANAGER|USER)
    - Synced with Supabase Auth
@@ -46,6 +51,7 @@ Job management and commission tracking system for a video production studio. Man
 ## Key Features
 
 ### Admin Dashboard (`/dashboard/admin/*`)
+
 1. **Services** (`/admin/services`) - CRUD for service types
 2. **Staff** (`/admin/staff`) - User management with:
    - Create/Edit/Delete users
@@ -59,6 +65,7 @@ Job management and commission tracking system for a video production studio. Man
    - View/Edit/Delete jobs
 
 ### Staff Dashboard (`/dashboard/staff/*`)
+
 1. **My Jobs** (`/staff/my-jobs`) - View assigned jobs only
    - Start/End job (sets started_at/completed_at)
    - Update status
@@ -66,18 +73,21 @@ Job management and commission tracking system for a video production studio. Man
    - Cannot see amount/commission (filtered by RLS)
 
 ### Dashboard Home (`/dashboard`)
+
 - Role-based stats (Total Jobs, In-Progress, Completed, Total Users for Admin)
 - Welcome screen with user name
 
 ## API Endpoints
 
 ### Admin APIs (`/api/admin/*`)
+
 - `POST /api/admin/create-user` - Create user with auth sync
 - `POST /api/admin/update-user` - Update user (bypasses RLS)
 - `DELETE /api/admin/delete-user` - Delete user (cascades to related data)
 - `POST /api/admin/create-vendor` - Create vendor
 
 ### Vendor APIs (`/api/vendors/*`)
+
 - `GET /api/vendors` - List vendors
 - `GET /api/vendors/[id]` - Get vendor details
 - `PUT /api/vendors/[id]` - Update vendor
@@ -86,19 +96,23 @@ Job management and commission tracking system for a video production studio. Man
 ## Business Logic
 
 ### Commission Calculation
+
 ```typescript
 // In lib/utils.ts
 commission = (jobAmount × staffPercentage) / 100
 ```
+
 - Calculated when job is created/updated
 - Staff percentage fetched from `staff_service_configs` based on job's service_id
 
 ### Time Tracking
+
 - **Start Job**: Sets `started_at` timestamp, status → `IN_PROGRESS`
 - **End Job**: Sets `completed_at` timestamp, status → `COMPLETED`
 - Total time = `completed_at - started_at`
 
 ### Access Control
+
 - **ADMIN**: Full CRUD on all modules, sees all jobs, financial data visible
 - **MANAGER**: Similar to admin (role exists but may have limited scope)
 - **USER**: Only assigned jobs visible, no amount/commission visibility (RLS filtered)
@@ -106,18 +120,21 @@ commission = (jobAmount × staffPercentage) / 100
 ## Key Components
 
 ### Reusable Components (`/components`)
+
 - `Pagination.tsx` - Page navigation
 - `Spinner.tsx` - Loading indicator
 - `AestheticSelect.tsx` - Custom select dropdown
 - `Tooltip.tsx` - Hover tooltips
 
 ### Design System
+
 - **Style**: Exaggerated Minimalism
 - **Colors**: Indigo/Purple gradients, slate backgrounds
 - **Typography**: Fira Code (headings), Nunito (body)
 - **Pattern**: Conversion-optimized with feature-rich layouts
 
 ## File Structure
+
 ```
 app/
 ├── dashboard/
@@ -144,6 +161,7 @@ supabase/
 ```
 
 ## Environment Variables
+
 - `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Public anon key
 - `SUPABASE_SERVICE_ROLE_KEY` - Admin service role key (server-only)
@@ -158,9 +176,11 @@ supabase/
 6. **Notification System**: Toast notifications for success/error feedback
 
 ## Status Flow
+
 Jobs follow: `PENDING` → `IN_PROGRESS` → `PAUSE` → `COMPLETED`
 
 ## Data Relationships
+
 - Job → Service (many-to-one)
 - Job → Vendor (many-to-one, nullable)
 - Job → Staff (many-to-one, nullable)

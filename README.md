@@ -1,6 +1,6 @@
-# First Story Films - Job Management System
+# first story Production - Job Management System
 
-A professional job management and commission tracking system for First Story Films production studio.
+A professional job management and commission tracking system for first story Production production studio.
 
 ## Tech Stack
 
@@ -13,6 +13,7 @@ A professional job management and commission tracking system for First Story Fil
 ## Features
 
 ### Admin Features
+
 - ✅ Service Master (CRUD)
 - ✅ Staff Master with service-wise commission configuration
 - ✅ Vendor Master (CRUD)
@@ -20,6 +21,7 @@ A professional job management and commission tracking system for First Story Fil
 - ✅ Real-time job tracking and status monitoring
 
 ### Staff Features
+
 - ✅ View assigned jobs
 - ✅ Start/End job with time tracking
 - ✅ Update job status
@@ -47,6 +49,7 @@ cp .env.example .env.local
 ```
 
 Update `.env.local` with your Supabase credentials:
+
 - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anon key
 - `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key
@@ -105,7 +108,7 @@ first-story-films/
 
 ## Design System
 
-This project follows the **First Story Films Design System**:
+This project follows the **first story Production Design System**:
 
 - **Style:** Exaggerated Minimalism
 - **Colors:** Professional Blue (#0F172A) + Success Green
@@ -146,4 +149,4 @@ npx prisma db push   # Push schema changes to Supabase
 
 ## License
 
-Private - First Story Films
+Private - first story Production

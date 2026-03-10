@@ -12,8 +12,8 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "First Story Films - Studio Management",
-  description: "Professional job management and commission tracking system for First Story Films production studio",
+  title: "First Story Producation - Studio Management",
+  description: "Professional job management and commission tracking system for First Story production studio",
 };
 
 export default function RootLayout({

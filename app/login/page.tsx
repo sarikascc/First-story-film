@@ -207,7 +207,7 @@ function LoginForm() {
             </div>
 
             <p className="text-center text-slate-300 text-[10px] mt-12 uppercase tracking-[0.4em] font-black">
-                © 2026 First Story Films
+                © 2026 First Story Production
             </p>
         </div>
     )
